@@ -1,0 +1,556 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { 
+  ChevronRight, 
+  ChevronLeft, 
+  Home, 
+  Users, 
+  CheckCircle2, 
+  Building2,
+  MessageSquare,
+  TrendingUp,
+  Lightbulb,
+  BookOpen,
+  ListTodo,
+  PlayCircle,
+  X
+} from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTutorial } from '../contexts/TutorialContext';
+
+const tutorialSteps = [
+  {
+    id: 'welcome',
+    title: 'Welcome to Your CRM!',
+    description: 'Let\'s take a quick tour of the system',
+    content: (
+      <div className="space-y-4">
+        <p className="text-lg">This CRM helps you manage customer relationships, track interactions, and score potential accounts.</p>
+        <div className="grid grid-cols-2 gap-4 mt-6">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Building2 className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+              <p className="font-semibold">Accounts</p>
+              <p className="text-sm text-slate-500">Track companies</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Users className="w-8 h-8 mx-auto mb-2 text-green-500" />
+              <p className="font-semibold">Contacts</p>
+              <p className="text-sm text-slate-500">Manage people</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <TrendingUp className="w-8 h-8 mx-auto mb-2 text-purple-500" />
+              <p className="font-semibold">Scoring</p>
+              <p className="text-sm text-slate-500">Rate accounts</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <MessageSquare className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+              <p className="font-semibold">Interactions</p>
+              <p className="text-sm text-slate-500">Track touchpoints</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'dashboard',
+    title: 'Dashboard - Your Command Center',
+    description: 'Start here every day to see what needs attention',
+    content: (
+      <div className="space-y-4">
+        <p>The Dashboard gives you an overview of your CRM health:</p>
+        <ul className="list-disc list-inside space-y-2 ml-4">
+          <li><strong>Stats Cards</strong> - Active accounts, contacts, tasks, at-risk accounts</li>
+          <li><strong>Alerts</strong> - Neglected accounts, upcoming renewals, overdue tasks</li>
+          <li><strong>Active Sequences</strong> - Automated outreach in progress</li>
+        </ul>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <p className="text-sm"><strong>💡 Tip:</strong> Click on alerts to jump directly to accounts or tasks that need attention.</p>
+        </div>
+      </div>
+    ),
+    action: {
+      label: 'Go to Dashboard',
+      route: '/dashboard'
+    }
+  },
+  {
+    id: 'accounts',
+    title: 'Accounts - The Heart of Your CRM',
+    description: 'Everything revolves around accounts (companies)',
+    content: (
+      <div className="space-y-4">
+        <p>Accounts represent companies you're doing business with or pursuing.</p>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+            <div>
+              <p className="font-semibold">Search & Filter</p>
+              <p className="text-sm text-slate-600">Find accounts by name, type, status, or revenue segment</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+            <div>
+              <p className="font-semibold">Organization Score</p>
+              <p className="text-sm text-slate-600">0-100 score helps prioritize accounts</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+            <div>
+              <p className="font-semibold">Click to View Details</p>
+              <p className="text-sm text-slate-600">See full account information, interactions, contacts, and more</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+    action: {
+      label: 'View Accounts',
+      route: '/accounts'
+    }
+  },
+  {
+    id: 'account-detail',
+    title: 'Account Detail - Deep Dive',
+    description: 'Everything about a specific account in one place',
+    content: (
+      <div className="space-y-4">
+        <p>When you click an account, you'll see tabs for different information:</p>
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <Card>
+            <CardContent className="p-3">
+              <MessageSquare className="w-5 h-5 mb-2 text-blue-500" />
+              <p className="font-semibold text-sm">Interactions</p>
+              <p className="text-xs text-slate-500">Timeline of all touchpoints</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <Users className="w-5 h-5 mb-2 text-green-500" />
+              <p className="font-semibold text-sm">Contacts</p>
+              <p className="text-xs text-slate-500">People at this account</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <TrendingUp className="w-5 h-5 mb-2 text-purple-500" />
+              <p className="font-semibold text-sm">Scoring</p>
+              <p className="text-xs text-slate-500">Scorecards and history</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <Lightbulb className="w-5 h-5 mb-2 text-yellow-500" />
+              <p className="font-semibold text-sm">Sales Insights</p>
+              <p className="text-xs text-slate-500">Pain points & opportunities</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <BookOpen className="w-5 h-5 mb-2 text-indigo-500" />
+              <p className="font-semibold text-sm">Research Notes</p>
+              <p className="text-xs text-slate-500">Findings and sources</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'scoring',
+    title: 'Scoring System - Rate Your Accounts',
+    description: 'Use scorecards to evaluate prospects and track customer health',
+    content: (
+      <div className="space-y-4">
+        <p>Scorecards help you objectively evaluate accounts at any stage:</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <p className="text-sm font-semibold mb-2">For Prospects:</p>
+          <p className="text-sm">Score potential clients before they become customers to prioritize your outreach (revenue not required yet).</p>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <p className="text-sm font-semibold mb-2">For Customers:</p>
+          <p className="text-sm">Track ongoing account health with scorecards that include revenue data.</p>
+        </div>
+        <div className="space-y-3">
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <p className="font-semibold mb-2">How It Works:</p>
+            <ol className="list-decimal list-inside space-y-1 text-sm">
+              <li>Complete a scorecard with weighted questions</li>
+              <li>Get a score (0-100) based on your answers</li>
+              <li>See Pass/Fail status based on threshold</li>
+              <li>Track score history over time</li>
+            </ol>
+          </div>
+          <div className="flex items-start gap-3">
+            <Badge variant="outline" className="mt-1">Sections</Badge>
+            <p className="text-sm">Questions grouped by category (e.g., "Corporate Demographics")</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <Badge variant="outline" className="mt-1">Sub-totals</Badge>
+            <p className="text-sm">See scores for each section</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <Badge variant="outline" className="mt-1">Export CSV</Badge>
+            <p className="text-sm">Download to match your Google Sheet format</p>
+          </div>
+        </div>
+      </div>
+    ),
+    action: {
+      label: 'View Scoring',
+      route: '/scoring'
+    }
+  },
+  {
+    id: 'interactions',
+    title: 'Interactions - Track Every Touchpoint',
+    description: 'Log all your communications with accounts',
+    content: (
+      <div className="space-y-4">
+        <p>Keep a complete record of all interactions:</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Badge>Email</Badge>
+            <Badge>Call</Badge>
+            <Badge>Meeting</Badge>
+            <Badge>Note</Badge>
+            <Badge>LinkedIn</Badge>
+          </div>
+          <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
+            <li>Log interactions with date, type, and notes</li>
+            <li>Track sentiment (positive, neutral, negative)</li>
+            <li>Link to contacts involved</li>
+            <li>View chronological timeline</li>
+          </ul>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <p className="text-sm"><strong>💡 Tip:</strong> Regular interaction logging helps identify neglected accounts on the Dashboard.</p>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'tasks',
+    title: 'Tasks - Stay Organized',
+    description: 'Manage your to-do list with priorities and due dates',
+    content: (
+      <div className="space-y-4">
+        <p>Tasks help you stay on top of follow-ups and actions:</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="font-semibold mb-2">Status:</p>
+            <div className="space-y-1">
+              <Badge variant="outline">To Do</Badge>
+              <Badge variant="outline" className="ml-2">In Progress</Badge>
+              <Badge variant="outline" className="ml-2">Completed</Badge>
+            </div>
+          </div>
+          <div>
+            <p className="font-semibold mb-2">Priority:</p>
+            <div className="space-y-1">
+              <Badge variant="outline">Low</Badge>
+              <Badge variant="outline" className="ml-2">Medium</Badge>
+              <Badge variant="outline" className="ml-2">High</Badge>
+              <Badge variant="outline" className="ml-2">Urgent</Badge>
+            </div>
+          </div>
+        </div>
+        <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
+          <li>Link tasks to accounts for context</li>
+          <li>Set due dates for time-sensitive items</li>
+          <li>Quick status updates by clicking badges</li>
+          <li>Filter by status or priority</li>
+        </ul>
+      </div>
+    ),
+    action: {
+      label: 'View Tasks',
+      route: '/tasks'
+    }
+  },
+  {
+    id: 'sequences',
+    title: 'Sequences - Automate Outreach',
+    description: 'Create multi-step automated follow-up sequences',
+    content: (
+      <div className="space-y-4">
+        <p>Sequences automate your outreach with timed steps:</p>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="font-semibold mb-2">Example Sequence:</p>
+          <ol className="list-decimal list-inside space-y-1 text-sm">
+            <li>Day 0: Initial email</li>
+            <li>Day 3: Follow-up call</li>
+            <li>Day 7: LinkedIn connection</li>
+            <li>Day 14: Meeting request</li>
+          </ol>
+        </div>
+        <div className="space-y-2">
+          <p className="font-semibold">Sequence Types:</p>
+          <div className="flex flex-wrap gap-2">
+            <Badge>Prospect</Badge>
+            <Badge>High-Value</Badge>
+            <Badge>Renewal</Badge>
+          </div>
+        </div>
+        <p className="text-sm text-slate-600">Enroll accounts in sequences to automate follow-ups based on account type.</p>
+      </div>
+    ),
+    action: {
+      label: 'View Sequences',
+      route: '/sequences'
+    }
+  },
+  {
+    id: 'google-sheets',
+    title: 'Google Sheets Integration',
+    description: 'Your data syncs automatically from Google Sheets',
+    content: (
+      <div className="space-y-4">
+        <p>This CRM reads data directly from your Google Sheet:</p>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+            <div>
+              <p className="font-semibold">Automatic Sync</p>
+              <p className="text-sm text-slate-600">Data loads when you open the CRM</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+            <div>
+              <p className="font-semibold">Scorecard Export</p>
+              <p className="text-sm text-slate-600">CSV exports match your Google Sheet format</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+            <div>
+              <p className="font-semibold">All Tabs Supported</p>
+              <p className="text-sm text-slate-600">Scorecard, Contacts, Insights, Notes, Cadence, Lookup Legend</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+          <p className="text-sm"><strong>📝 Note:</strong> Make sure your Google Sheet is set to "Anyone with the link can view" for the CRM to access it.</p>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'complete',
+    title: 'You\'re All Set!',
+    description: 'Ready to start using your CRM',
+    content: (
+      <div className="space-y-4 text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+          <CheckCircle2 className="w-10 h-10 text-green-600" />
+        </div>
+        <div>
+          <p className="text-lg font-semibold mb-2">Congratulations!</p>
+          <p className="text-slate-600">You now know the basics of your CRM system.</p>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+          <p className="font-semibold mb-2">Next Steps:</p>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-left">
+            <li>Explore the Dashboard to see your data</li>
+            <li>Click on an account to see the detail view</li>
+            <li>Complete your first scorecard</li>
+            <li>Log an interaction</li>
+            <li>Create a task</li>
+          </ol>
+        </div>
+        <div className="mt-6">
+          <p className="text-sm text-slate-500">Need help? Check the User Guide or explore the system on your own!</p>
+        </div>
+      </div>
+    )
+  }
+];
+
+export default function Tutorial() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { startTutorial, currentStep, setCurrentStep } = useTutorial();
+  const step = tutorialSteps[currentStep];
+  const progress = ((currentStep + 1) / tutorialSteps.length) * 100;
+
+  // Initialize tutorial mode and step from URL or default
+  useEffect(() => {
+    const stepParam = searchParams.get('step');
+    if (stepParam !== null) {
+      const step = parseInt(stepParam) || 0;
+      if (step !== currentStep) {
+        setCurrentStep(step);
+      }
+      startTutorial(step);
+    } else {
+      // No step param, use current step or default to 0
+      if (currentStep === undefined || currentStep === null) {
+        setCurrentStep(0);
+        startTutorial(0);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleNext = () => {
+    if (currentStep < tutorialSteps.length - 1) {
+      const nextStep = currentStep + 1;
+      navigate(`/tutorial?step=${nextStep}`, { replace: true });
+      // setCurrentStep will be updated by useEffect when URL changes
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      const prevStep = currentStep - 1;
+      navigate(`/tutorial?step=${prevStep}`, { replace: true });
+      // setCurrentStep will be updated by useEffect when URL changes
+    }
+  };
+
+  const handleAction = (route) => {
+    // Navigate with tutorial mode enabled
+    navigate(`${route}?tutorial=${currentStep}`);
+  };
+
+  const handleSkip = () => {
+    navigate('/dashboard');
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Interactive Tutorial</h1>
+            <p className="text-slate-600 mt-1">Learn how to use your CRM system</p>
+          </div>
+          <Button variant="ghost" onClick={handleSkip}>
+            <X className="w-4 h-4 mr-2" />
+            Skip Tutorial
+          </Button>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-slate-700">
+              Step {currentStep + 1} of {tutorialSteps.length}
+            </span>
+            <span className="text-sm text-slate-500">{Math.round(progress)}% Complete</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+
+        {/* Step Card */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-2xl">{step.title}</CardTitle>
+                <CardDescription className="mt-2 text-base">{step.description}</CardDescription>
+              </div>
+              <Badge variant="outline" className="ml-4">
+                {step.id}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {step.content}
+            
+            {step.action && (
+              <div className="pt-4 border-t">
+                <Button 
+                  onClick={() => handleAction(step.action.route)}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <PlayCircle className="w-4 h-4 mr-2" />
+                  {step.action.label}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Previous
+          </Button>
+
+          <div className="flex gap-2">
+            {tutorialSteps.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setCurrentStep(index);
+                  navigate(`/tutorial?step=${index}`, { replace: true });
+                }}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  index === currentStep
+                    ? 'bg-blue-600'
+                    : index < currentStep
+                    ? 'bg-green-500'
+                    : 'bg-slate-300'
+                }`}
+                aria-label={`Go to step ${index + 1}`}
+              />
+            ))}
+          </div>
+
+          <Button
+            onClick={handleNext}
+            disabled={currentStep === tutorialSteps.length - 1}
+          >
+            {currentStep === tutorialSteps.length - 1 ? (
+              <>
+                <Home className="w-4 h-4 mr-2" />
+                Finish
+              </>
+            ) : (
+              <>
+                Next
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Quick Links */}
+        {currentStep === tutorialSteps.length - 1 && (
+          <div className="mt-8 flex gap-4 justify-center">
+            <Button variant="outline" onClick={() => navigate('/dashboard')}>
+              <Home className="w-4 h-4 mr-2" />
+              Go to Dashboard
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/accounts')}>
+              <Building2 className="w-4 h-4 mr-2" />
+              View Accounts
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

@@ -1,0 +1,328 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../utils';
+import TutorialTooltip from '../components/TutorialTooltip';
+import {
+  Building2,
+  Users,
+  CheckSquare,
+  AlertTriangle,
+  TrendingUp,
+  Calendar,
+  ArrowRight,
+  Clock
+} from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+
+export default function Dashboard() {
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list()
+  });
+
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => base44.entities.Contact.list()
+  });
+
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => base44.entities.Task.list()
+  });
+
+  const { data: sequences = [] } = useQuery({
+    queryKey: ['sequence-enrollments'],
+    queryFn: () => base44.entities.SequenceEnrollment.list()
+  });
+
+  // Calculate metrics
+  const activeAccounts = accounts.filter(a => a.status === 'active').length;
+  const atRiskAccounts = accounts.filter(a => a.status === 'at_risk').length;
+  const myTasks = tasks.filter(t => t.status !== 'completed').length;
+  
+  // Neglected accounts (no interaction in 30+ days)
+  const neglectedAccounts = accounts.filter(account => {
+    if (!account.last_interaction_date) return true;
+    const daysSince = differenceInDays(new Date(), new Date(account.last_interaction_date));
+    return daysSince > 30;
+  });
+
+  // Upcoming renewals (within 60 days)
+  const upcomingRenewals = accounts.filter(account => {
+    if (!account.renewal_date) return false;
+    const daysUntil = differenceInDays(new Date(account.renewal_date), new Date());
+    return daysUntil > 0 && daysUntil <= 60;
+  });
+
+  // Overdue tasks
+  const overdueTasks = tasks.filter(task => {
+    if (task.status === 'completed' || !task.due_date) return false;
+    return new Date(task.due_date) < new Date();
+  });
+
+  const stats = [
+    {
+      title: 'Active Accounts',
+      value: activeAccounts,
+      icon: Building2,
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      tip: 'This shows your active accounts. These are accounts marked as active in your CRM.'
+    },
+    {
+      title: 'Total Contacts',
+      value: contacts.length,
+      icon: Users,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      tip: 'This shows your total contacts. This is the total number of contacts across all accounts.'
+    },
+    {
+      title: 'Open Tasks',
+      value: myTasks,
+      icon: CheckSquare,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-50',
+      tip: 'This shows your open tasks. These are tasks that haven\'t been completed yet.'
+    },
+    {
+      title: 'At Risk Accounts',
+      value: atRiskAccounts,
+      icon: AlertTriangle,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      tip: 'This shows your at risk accounts. These are accounts flagged as at-risk.'
+    }
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+        <p className="text-slate-600 mt-1">Overview of your sales pipeline and activities</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <TutorialTooltip
+              key={stat.title}
+              tip={stat.tip}
+              step={1}
+              position="bottom"
+            >
+              <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">{stat.title}</p>
+                      <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
+                    </div>
+                    <div className={`${stat.bgColor} p-3 rounded-xl`}>
+                      <Icon className={`w-6 h-6 ${stat.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TutorialTooltip>
+          );
+        })}
+      </div>
+
+      {/* Alerts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Neglected Accounts */}
+        <TutorialTooltip
+          tip="Accounts here haven't been contacted in 30+ days. Click any account name to view details, log interactions, or update contact information. This helps you identify accounts that need attention."
+          step={1}
+          position="bottom"
+        >
+          <Card className="border-amber-200 bg-amber-50/50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2 text-slate-900">
+                  <Clock className="w-5 h-5 text-amber-600" />
+                  Neglected Accounts
+                </CardTitle>
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
+                  {neglectedAccounts.length}
+                </Badge>
+              </div>
+            </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-3">No contact in 30+ days</p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {neglectedAccounts.slice(0, 5).map(account => (
+                <Link
+                  key={account.id}
+                  to={createPageUrl(`AccountDetail?id=${account.id}`)}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-amber-50 transition-colors border border-amber-100"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900">{account.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {account.last_interaction_date
+                        ? `Last contact: ${format(new Date(account.last_interaction_date), 'MMM d, yyyy')}`
+                        : 'No interactions logged'}
+                    </p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                </Link>
+              ))}
+              {neglectedAccounts.length === 0 && (
+                <p className="text-sm text-slate-500 text-center py-4">No neglected accounts 🎉</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        </TutorialTooltip>
+
+        {/* Upcoming Renewals */}
+        <TutorialTooltip
+          tip="Accounts with renewals coming up in the next 60 days. Click on account names to prepare renewal proposals, review contracts, or schedule renewal meetings. Planning ahead helps increase renewal rates."
+          step={1}
+          position="bottom"
+        >
+          <Card className="border-emerald-200 bg-emerald-50/50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2 text-slate-900">
+                  <Calendar className="w-5 h-5 text-emerald-600" />
+                  Upcoming Renewals
+                </CardTitle>
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                  {upcomingRenewals.length}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-600 mb-3">Renewing in next 60 days</p>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {upcomingRenewals.slice(0, 5).map(account => {
+                  const daysUntil = differenceInDays(new Date(account.renewal_date), new Date());
+                  return (
+                    <Link
+                      key={account.id}
+                      to={createPageUrl(`AccountDetail?id=${account.id}`)}
+                      className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-emerald-50 transition-colors border border-emerald-100"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-900">{account.name}</p>
+                        <p className="text-xs text-slate-500">
+                          Renews in {daysUntil} days • {format(new Date(account.renewal_date), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-400" />
+                    </Link>
+                  );
+                })}
+                {upcomingRenewals.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-4">No upcoming renewals</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TutorialTooltip>
+
+        {/* Overdue Tasks */}
+        <TutorialTooltip
+          tip="Tasks that are past their due date. These need immediate attention. Click on task titles to view details, update status, or reschedule. Staying on top of overdue tasks helps maintain client relationships."
+          step={1}
+          position="bottom"
+        >
+        <Card className="border-red-200 bg-red-50/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2 text-slate-900">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                Overdue Tasks
+              </CardTitle>
+              <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200">
+                {overdueTasks.length}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-3">Tasks past their due date</p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {overdueTasks.slice(0, 5).map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-100"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900">{task.title}</p>
+                    <p className="text-xs text-slate-500">
+                      Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-red-600 border-red-300">
+                    {task.priority}
+                  </Badge>
+                </div>
+              ))}
+              {overdueTasks.length === 0 && (
+                <p className="text-sm text-slate-500 text-center py-4">No overdue tasks 🎉</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        </TutorialTooltip>
+
+        {/* Active Sequences */}
+        <TutorialTooltip
+          tip="Accounts currently enrolled in automated outreach sequences. Sequences are multi-step automated follow-ups that help you stay in touch with prospects and customers. View active enrollments to see progress."
+          step={1}
+          position="bottom"
+        >
+        <Card className="border-indigo-200 bg-indigo-50/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2 text-slate-900">
+                <TrendingUp className="w-5 h-5 text-indigo-600" />
+                Active Sequences
+              </CardTitle>
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 border-indigo-200">
+                {sequences.filter(s => s.status === 'active').length}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600 mb-3">Accounts in sequences</p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {sequences.filter(s => s.status === 'active').slice(0, 5).map(enrollment => {
+                const account = accounts.find(a => a.id === enrollment.account_id);
+                return (
+                  <div
+                    key={enrollment.id}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-indigo-100"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-900">{account?.name || 'Unknown'}</p>
+                      <p className="text-xs text-slate-500">
+                        Step {enrollment.current_step} • Next: {enrollment.next_action_date ? format(new Date(enrollment.next_action_date), 'MMM d') : 'TBD'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              {sequences.filter(s => s.status === 'active').length === 0 && (
+                <p className="text-sm text-slate-500 text-center py-4">No active sequences</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        </TutorialTooltip>
+      </div>
+    </div>
+  );
+}
+

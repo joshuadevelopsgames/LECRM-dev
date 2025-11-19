@@ -1,0 +1,523 @@
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Link, useNavigate } from 'react-router-dom';
+import { createPageUrl } from '../utils';
+import TutorialTooltip from '../components/TutorialTooltip';
+import {
+  Plus,
+  Search,
+  Building2,
+  TrendingUp,
+  Calendar,
+  AlertCircle,
+  Filter,
+  ArrowUpDown,
+  LayoutGrid,
+  List
+} from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
+export default function Accounts() {
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterSegment, setFilterSegment] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
+  
+  const queryClient = useQueryClient();
+
+  const { data: accounts = [], isLoading } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => base44.entities.Account.list()
+  });
+
+  const createAccountMutation = useMutation({
+    mutationFn: (data) => base44.entities.Account.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      setIsDialogOpen(false);
+    }
+  });
+
+  const [newAccount, setNewAccount] = useState({
+    name: '',
+    account_type: 'prospect',
+    revenue_segment: 'smb',
+    status: 'active',
+    annual_revenue: '',
+    industry: '',
+    notes: ''
+  });
+
+  const handleCreateAccount = () => {
+    createAccountMutation.mutate({
+      ...newAccount,
+      annual_revenue: newAccount.annual_revenue ? parseFloat(newAccount.annual_revenue) : null
+    });
+  };
+
+  // Filter and sort accounts
+  let filteredAccounts = accounts.filter(account => {
+    const matchesSearch = account.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || account.account_type === filterType;
+    const matchesSegment = filterSegment === 'all' || account.revenue_segment === filterSegment;
+    return matchesSearch && matchesType && matchesSegment;
+  });
+
+  filteredAccounts.sort((a, b) => {
+    if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+    if (sortBy === 'score') return (b.organization_score || 0) - (a.organization_score || 0);
+    if (sortBy === 'revenue') return (b.annual_revenue || 0) - (a.annual_revenue || 0);
+    if (sortBy === 'last_interaction') {
+      if (!a.last_interaction_date) return 1;
+      if (!b.last_interaction_date) return -1;
+      return new Date(b.last_interaction_date) - new Date(a.last_interaction_date);
+    }
+    return 0;
+  });
+
+  const getAccountTypeColor = (type) => {
+    const colors = {
+      prospect: 'bg-blue-100 text-blue-800 border-blue-200',
+      customer: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      renewal: 'bg-amber-100 text-amber-800 border-amber-200',
+      churned: 'bg-slate-100 text-slate-600 border-slate-200'
+    };
+    return colors[type] || colors.prospect;
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      active: 'bg-emerald-100 text-emerald-800',
+      at_risk: 'bg-red-100 text-red-800',
+      negotiating: 'bg-blue-100 text-blue-800',
+      onboarding: 'bg-purple-100 text-purple-800',
+      churned: 'bg-slate-100 text-slate-600'
+    };
+    return colors[status] || colors.active;
+  };
+
+  const getNeglectStatus = (lastInteractionDate) => {
+    if (!lastInteractionDate) return { label: 'Never contacted', color: 'text-red-600', days: null };
+    const days = differenceInDays(new Date(), new Date(lastInteractionDate));
+    if (days > 60) return { label: `${days} days ago`, color: 'text-red-600', days };
+    if (days > 30) return { label: `${days} days ago`, color: 'text-amber-600', days };
+    return { label: `${days} days ago`, color: 'text-slate-600', days };
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <TutorialTooltip
+          tip="This is your Accounts page. Here you can view all companies, search and filter them by type or segment, and click on any account to see detailed information."
+          step={2}
+          position="bottom"
+        >
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Accounts</h1>
+            <p className="text-slate-600 mt-1">{filteredAccounts.length} total accounts</p>
+          </div>
+        </TutorialTooltip>
+        <TutorialTooltip
+          tip="Click this button to create a new account (company) in your CRM. Fill in the company name, type, revenue segment, and other details."
+          step={2}
+          position="bottom"
+        >
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-slate-900 hover:bg-slate-800">
+              <Plus className="w-4 h-4 mr-2" />
+              New Account
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Account</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label>Company Name *</Label>
+                  <Input
+                    value={newAccount.name}
+                    onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
+                    placeholder="Acme Corporation"
+                  />
+                </div>
+                <div>
+                  <Label>Account Type</Label>
+                  <Select
+                    value={newAccount.account_type}
+                    onValueChange={(value) => setNewAccount({ ...newAccount, account_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="prospect">Prospect</SelectItem>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="renewal">Renewal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Revenue Segment</Label>
+                  <Select
+                    value={newAccount.revenue_segment}
+                    onValueChange={(value) => setNewAccount({ ...newAccount, revenue_segment: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                      <SelectItem value="mid_market">Mid-Market</SelectItem>
+                      <SelectItem value="smb">SMB</SelectItem>
+                      <SelectItem value="startup">Startup</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Annual Revenue</Label>
+                  <Input
+                    type="number"
+                    value={newAccount.annual_revenue}
+                    onChange={(e) => setNewAccount({ ...newAccount, annual_revenue: e.target.value })}
+                    placeholder="50000"
+                  />
+                </div>
+                <div>
+                  <Label>Industry</Label>
+                  <Input
+                    value={newAccount.industry}
+                    onChange={(e) => setNewAccount({ ...newAccount, industry: e.target.value })}
+                    placeholder="Technology"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={newAccount.notes}
+                    onChange={(e) => setNewAccount({ ...newAccount, notes: e.target.value })}
+                    placeholder="Additional information about this account..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateAccount} disabled={!newAccount.name}>
+                  Create Account
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        </TutorialTooltip>
+      </div>
+
+      {/* Filters & Search */}
+      <TutorialTooltip
+        tip="Use these filters to search accounts by name, filter by type or segment, sort by different criteria, and toggle between list and card views."
+        step={2}
+        position="bottom"
+      >
+      <Card className="p-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Input
+              placeholder="Search accounts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="prospect">Prospect</SelectItem>
+                <SelectItem value="customer">Customer</SelectItem>
+                <SelectItem value="renewal">Renewal</SelectItem>
+                <SelectItem value="churned">Churned</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterSegment} onValueChange={setFilterSegment}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Segment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Segments</SelectItem>
+                <SelectItem value="enterprise">Enterprise</SelectItem>
+                <SelectItem value="mid_market">Mid-Market</SelectItem>
+                <SelectItem value="smb">SMB</SelectItem>
+                <SelectItem value="startup">Startup</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-48">
+                <ArrowUpDown className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Sort by Name</SelectItem>
+                <SelectItem value="score">Sort by Score</SelectItem>
+                <SelectItem value="revenue">Sort by Revenue</SelectItem>
+                <SelectItem value="last_interaction">Sort by Last Contact</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 border border-slate-300 rounded-lg p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={`h-8 px-3 ${viewMode === 'list' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'card' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('card')}
+                className={`h-8 px-3 ${viewMode === 'card' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+      </TutorialTooltip>
+
+      {/* Accounts List View */}
+      {viewMode === 'list' ? (
+        <TutorialTooltip
+          tip="This is the list view of all accounts. Click on any row to view the account details. You can see the account name, type, status, segment, organization score, last contact date, and revenue at a glance."
+          step={2}
+          position="bottom"
+        >
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Account
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Segment
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Score
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Last Contact
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Revenue
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {filteredAccounts.map((account) => {
+                    const neglectStatus = getNeglectStatus(account.last_interaction_date);
+                    return (
+                      <tr 
+                        key={account.id} 
+                        onClick={() => navigate(createPageUrl(`AccountDetail?id=${account.id}`))}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <Building2 className="w-5 h-5 text-slate-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-slate-900">{account.name}</div>
+                              <div className="text-sm text-slate-500">{account.industry || 'No industry'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant="outline" className={getAccountTypeColor(account.account_type)}>
+                            {account.account_type}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge className={getStatusColor(account.status)}>
+                            {account.status}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {account.revenue_segment ? account.revenue_segment.replace('_', '-') : '-'}
+                        </td>
+                        <td className="px-6 py-4">
+                          {account.organization_score !== null && account.organization_score !== undefined ? (
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                              <span className="font-semibold text-emerald-600">{account.organization_score}</span>
+                              <span className="text-xs text-slate-500">/100</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {neglectStatus.days !== null && neglectStatus.days > 30 && (
+                              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                            )}
+                            <span className={`text-sm font-medium ${neglectStatus.color}`}>
+                              {neglectStatus.label}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right text-sm text-slate-900 font-medium">
+                          {account.annual_revenue ? `$${account.annual_revenue.toLocaleString()}` : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </TutorialTooltip>
+      ) : (
+        /* Accounts Card View */
+        <TutorialTooltip
+          tip="This is the card view of accounts. Click on any card to view account details. Cards show key information in a visual format."
+          step={2}
+          position="bottom"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAccounts.map((account) => {
+            const neglectStatus = getNeglectStatus(account.last_interaction_date);
+            return (
+              <Link key={account.id} to={createPageUrl(`AccountDetail?id=${account.id}`)}>
+                <Card className="p-5 hover:shadow-lg transition-all border-slate-200 h-full">
+                  <div className="space-y-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-slate-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-900">{account.name}</h3>
+                          <p className="text-sm text-slate-500">{account.industry || 'No industry'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className={getAccountTypeColor(account.account_type)}>
+                        {account.account_type}
+                      </Badge>
+                      <Badge className={getStatusColor(account.status)}>
+                        {account.status}
+                      </Badge>
+                      {account.revenue_segment && (
+                        <Badge variant="outline" className="text-slate-600 border-slate-300">
+                          {account.revenue_segment.replace('_', '-')}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Score */}
+                    {account.organization_score !== null && account.organization_score !== undefined && (
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium text-slate-700">Score:</span>
+                        <span className="text-lg font-bold text-emerald-600">{account.organization_score}</span>
+                        <span className="text-sm text-slate-500">/100</span>
+                      </div>
+                    )}
+
+                    {/* Last Interaction */}
+                    <div className="pt-3 border-t border-slate-100">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600">Last contact:</span>
+                        <span className={`font-medium ${neglectStatus.color}`}>
+                          {neglectStatus.label}
+                        </span>
+                      </div>
+                      {account.annual_revenue && (
+                        <div className="flex items-center justify-between text-sm mt-2">
+                          <span className="text-slate-600">Annual value:</span>
+                          <span className="font-medium text-slate-900">
+                            ${account.annual_revenue.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Warnings */}
+                    {neglectStatus.days > 30 && (
+                      <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                        <span className="text-xs text-amber-800">Needs attention</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+        </TutorialTooltip>
+      )}
+
+      {filteredAccounts.length === 0 && (
+        <Card className="p-12 text-center">
+          <Building2 className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-slate-900 mb-1">No accounts found</h3>
+          <p className="text-slate-600 mb-4">
+            {searchTerm || filterType !== 'all' || filterSegment !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Create your first account to get started'}
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+

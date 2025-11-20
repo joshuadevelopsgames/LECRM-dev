@@ -26,11 +26,14 @@ if command -v sips > /dev/null; then
   # Generate 192x192 for Android PWA
   sips -z 192 192 "$PUBLIC_DIR/app-icon-1024.png" --out "$PUBLIC_DIR/app-icon-192.png" > /dev/null 2>&1
   
-  # Generate 180x180 for Apple Touch Icon
+  # Generate 180x180 for Apple Touch Icon - use iOS 60@3x directly (already 180x180)
   if [ -f "$IOS_ICONS_DIR/AppIcon-60@3x.png" ]; then
     cp "$IOS_ICONS_DIR/AppIcon-60@3x.png" "$PUBLIC_DIR/apple-touch-icon.png"
+    echo "✅ Using iOS AppIcon-60@3x.png directly for apple-touch-icon (180x180)"
   else
+    # Fallback: generate from 1024x1024
     sips -z 180 180 "$PUBLIC_DIR/app-icon-1024.png" --out "$PUBLIC_DIR/apple-touch-icon.png" > /dev/null 2>&1
+    echo "⚠️  Generated 180x180 from 1024x1024 (iOS 60@3x not found)"
   fi
   
   echo "✅ Icons generated successfully!"

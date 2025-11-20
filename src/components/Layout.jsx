@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '../utils';
-import { Capacitor } from '@capacitor/core';
 
 import { 
   LayoutDashboard, 
@@ -21,18 +20,14 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { useTutorial } from '../contexts/TutorialContext';
 import NotificationBell from './NotificationBell';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 export default function Layout({ children, currentPageName }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isNativeApp, setIsNativeApp] = useState(false);
+  const { isPWA, isMobile, isDesktop, isNativeApp } = useDeviceDetection();
   const { isTutorialMode, exitTutorial } = useTutorial();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
-  // Check if running in native app (only affects mobile app, not web)
-  useEffect(() => {
-    setIsNativeApp(Capacitor.isNativePlatform());
-  }, []);
 
   const navigation = [
     { name: 'Dashboard', path: 'Dashboard', icon: LayoutDashboard },
@@ -75,11 +70,11 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      {/* Top Navigation - Mobile-specific styles only apply in native app */}
+      {/* Top Navigation - Apply mobile/PWA styles without affecting desktop */}
       <nav 
         className="bg-white border-b border-slate-200/50 fixed left-0 right-0 z-50 shadow-sm" 
-        style={isNativeApp ? { 
-          // Mobile app specific styles
+        style={(isPWA || isNativeApp) ? { 
+          // PWA and native app specific styles (not desktop)
           top: isTutorialMode ? '3rem' : '0',
           left: '0',
           right: '0',
@@ -95,7 +90,7 @@ export default function Layout({ children, currentPageName }) {
           marginBottom: '0',
           zIndex: '9999'
         } : {
-          // Web styles (unchanged from original)
+          // Desktop web browser styles (unchanged)
           top: isTutorialMode ? '3rem' : '0',
           backgroundColor: '#ffffff'
         }}
@@ -162,13 +157,13 @@ export default function Layout({ children, currentPageName }) {
               </Button>
             </div>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden flex items-center gap-1" style={isNativeApp ? { gap: '4px' } : {}}>
+            {/* Mobile menu button - Better touch targets for PWA/mobile */}
+            <div className="md:hidden flex items-center gap-1" style={(isPWA || isNativeApp) ? { gap: '4px' } : {}}>
               <Link
                 to="/tutorial"
                 className="text-slate-600 hover:text-slate-900"
                 title="Tutorial"
-                style={isNativeApp ? {
+                style={(isPWA || isNativeApp) ? {
                   padding: '10px',
                   minWidth: '44px',
                   minHeight: '44px',
@@ -187,7 +182,7 @@ export default function Layout({ children, currentPageName }) {
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="text-slate-600 hover:text-slate-900"
-                style={isNativeApp ? {
+                style={(isPWA || isNativeApp) ? {
                   padding: '10px',
                   minWidth: '44px',
                   minHeight: '44px',
@@ -226,7 +221,7 @@ export default function Layout({ children, currentPageName }) {
                         ? 'bg-slate-900 text-white'
                         : 'text-slate-600 hover:bg-slate-100'
                     }`}
-                    style={isNativeApp ? {
+                    style={(isPWA || isNativeApp) ? {
                       minHeight: '48px',
                       WebkitTapHighlightColor: 'transparent',
                       touchAction: 'manipulation'
@@ -248,7 +243,7 @@ export default function Layout({ children, currentPageName }) {
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 w-full"
-                style={isNativeApp ? {
+                style={(isPWA || isNativeApp) ? {
                   minHeight: '48px',
                   WebkitTapHighlightColor: 'transparent',
                   touchAction: 'manipulation',
@@ -263,16 +258,16 @@ export default function Layout({ children, currentPageName }) {
         )}
       </nav>
 
-      {/* Main Content - Padding accounts for fixed nav bar */}
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8`} style={isNativeApp ? { 
-        // Mobile app specific padding
+      {/* Main Content - Responsive padding: different for PWA/mobile vs desktop */}
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8`} style={(isPWA || isNativeApp) ? { 
+        // PWA and native app specific padding (with safe areas)
         paddingTop: `calc(${isTutorialMode ? '7rem' : '4rem'} + env(safe-area-inset-top, 0px) - 0.25rem)`,
         paddingBottom: `calc(1.5rem + env(safe-area-inset-bottom, 0px))`,
         backgroundColor: '#ffffff',
         minHeight: `calc(100vh - ${isTutorialMode ? '7rem' : '4rem'} - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))`
       } : {
-        // Web styles - need padding for fixed nav bar
-        paddingTop: isTutorialMode ? '7rem' : '5rem',
+        // Desktop web browser styles - standard padding
+        paddingTop: isTutorialMode ? '7rem' : isDesktop ? '6rem' : '5rem',
         backgroundColor: '#ffffff'
       }}>
         <div className="animate-in fade-in duration-300">

@@ -5,6 +5,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { createPageUrl } from '../utils';
 import { initGoogleSignIn } from '../services/googleAuthService';
 import { Capacitor } from '@capacitor/core';
+import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 
 // Browser plugin is optional - import dynamically if available
 let Browser = null;
@@ -99,17 +100,20 @@ export default function Login() {
     }
   };
 
-  const isMobile = Capacitor.isNativePlatform();
-  const safeAreaTop = isMobile ? 'env(safe-area-inset-top, 0px)' : '0px';
-  const safeAreaBottom = isMobile ? 'env(safe-area-inset-bottom, 0px)' : '0px';
+  const { isPWA, isMobile, isDesktop, isNativeApp } = useDeviceDetection();
+  
+  // Calculate safe area padding for PWA and native app
+  const needsSafeArea = isPWA || isNativeApp;
+  const safeAreaTop = needsSafeArea ? 'env(safe-area-inset-top, 0px)' : '0px';
+  const safeAreaBottom = needsSafeArea ? 'env(safe-area-inset-bottom, 0px)' : '0px';
   
   return (
     <div style={{ 
       minHeight: '100vh', 
       backgroundColor: '#f1f5f9', 
-      padding: '20px', 
-      paddingTop: `calc(20px + ${safeAreaTop})`,
-      paddingBottom: `calc(20px + ${safeAreaBottom})`,
+      padding: isPWA ? '20px' : isDesktop ? '40px' : '20px',
+      paddingTop: `calc(${isPWA ? '20px' : isDesktop ? '40px' : '20px'} + ${safeAreaTop})`,
+      paddingBottom: `calc(${isPWA ? '20px' : isDesktop ? '40px' : '20px'} + ${safeAreaBottom})`,
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center',
@@ -119,7 +123,7 @@ export default function Login() {
         width: '100%', 
         maxWidth: '28rem', 
         backgroundColor: 'white', 
-        padding: isMobile ? '20px' : '24px', 
+        padding: (isPWA || isMobile) ? '20px' : isDesktop ? '32px' : '24px',
         borderRadius: '12px', 
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         margin: 'auto'
@@ -127,7 +131,7 @@ export default function Login() {
         <Toaster position="top-center" />
         
         {/* Logo and Title */}
-        <div style={{ textAlign: 'center', marginBottom: isMobile ? '24px' : '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: (isPWA || isMobile) ? '24px' : '32px' }}>
           <Link 
             to={createPageUrl('Dashboard')}
             style={{ display: 'inline-block' }}
@@ -136,15 +140,15 @@ export default function Login() {
               <img 
                 src="/logo.png" 
                 alt="LECRM Logo" 
-                style={{ height: isMobile ? '56px' : '64px', width: 'auto' }}
+                style={{ height: (isPWA || isMobile) ? '56px' : isDesktop ? '72px' : '64px', width: 'auto' }}
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
             </div>
-            <h1 style={{ fontSize: isMobile ? '26px' : '30px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', cursor: 'pointer' }}>LECRM</h1>
+            <h1 style={{ fontSize: (isPWA || isMobile) ? '26px' : isDesktop ? '34px' : '30px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', cursor: 'pointer' }}>LECRM</h1>
           </Link>
-          <p style={{ color: '#475569', fontSize: isMobile ? '14px' : '16px' }}>Sign in to your account</p>
+          <p style={{ color: '#475569', fontSize: (isPWA || isMobile) ? '14px' : '16px' }}>Sign in to your account</p>
         </div>
 
         {/* Login Card */}
@@ -194,10 +198,10 @@ export default function Login() {
                   disabled={isLoading}
                   autoComplete="current-password"
                   style={{
-                    padding: isMobile ? '12px 14px' : '8px 12px',
+                    padding: (isPWA || isMobile) ? '12px 14px' : '8px 12px',
                     border: '1px solid #cbd5e1',
                     borderRadius: '6px',
-                    fontSize: isMobile ? '16px' : '14px',
+                    fontSize: (isPWA || isMobile) ? '16px' : '14px', // 16px prevents iOS zoom
                     width: '100%',
                     boxSizing: 'border-box',
                     WebkitAppearance: 'none',
@@ -211,15 +215,15 @@ export default function Login() {
                 disabled={isLoading || isGoogleLoading}
                 style={{
                   width: '100%',
-                  padding: isMobile ? '14px 16px' : '10px 16px',
+                  padding: (isPWA || isMobile) ? '14px 16px' : '10px 16px',
                   backgroundColor: isLoading || isGoogleLoading ? '#94a3b8' : '#0f172a',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
-                  fontSize: isMobile ? '16px' : '14px',
+                  fontSize: (isPWA || isMobile) ? '16px' : '14px',
                   fontWeight: '500',
                   cursor: isLoading || isGoogleLoading ? 'not-allowed' : 'pointer',
-                  minHeight: isMobile ? '48px' : 'auto',
+                  minHeight: (isPWA || isMobile) ? '48px' : 'auto', // Better touch targets on mobile/PWA
                   WebkitTapHighlightColor: 'transparent',
                   touchAction: 'manipulation'
                 }}
@@ -242,19 +246,19 @@ export default function Login() {
               disabled={isLoading || isGoogleLoading}
               style={{
                 width: '100%',
-                padding: isMobile ? '14px 16px' : '10px 16px',
+                padding: (isPWA || isMobile) ? '14px 16px' : '10px 16px',
                 backgroundColor: isLoading || isGoogleLoading ? '#f1f5f9' : 'white',
                 color: isLoading || isGoogleLoading ? '#94a3b8' : '#0f172a',
                 border: '1px solid #cbd5e1',
                 borderRadius: '6px',
-                fontSize: isMobile ? '16px' : '14px',
+                fontSize: (isPWA || isMobile) ? '16px' : '14px',
                 fontWeight: '500',
                 cursor: isLoading || isGoogleLoading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                minHeight: isMobile ? '48px' : 'auto',
+                minHeight: (isPWA || isMobile) ? '48px' : 'auto', // Better touch targets
                 WebkitTapHighlightColor: 'transparent',
                 touchAction: 'manipulation'
               }}

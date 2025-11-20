@@ -878,7 +878,7 @@ export default function Tasks() {
                 <CheckCircle2 className="w-4 h-4" />
                 Completed ({counts.completed})
               </TabsTrigger>
-              </TabsList>
+            </TabsList>
             </div>
           </Tabs>
 
@@ -1042,19 +1042,19 @@ export default function Tasks() {
                       <CardContent className="px-3 pt-2 pb-0 flex flex-col h-full">
                         {/* Header with priority and status */}
                         <div className="flex items-start justify-between mb-4">
-                          <div 
+                            <div 
                             className={`flex items-center justify-center w-6 h-6 rounded border ${priorityFlag.bgColor} ${priorityFlag.borderColor} cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0`}
-                            onClick={(e) => handlePriorityClick(task.id, task.priority, e)}
-                            title={`Click to change priority (currently ${priorityFlag.label})`}
-                          >
+                              onClick={(e) => handlePriorityClick(task.id, task.priority, e)}
+                              title={`Click to change priority (currently ${priorityFlag.label})`}
+                            >
                             <PriorityIcon className={`w-3.5 h-3.5 ${priorityFlag.color} ${PriorityIcon === Circle ? 'fill-current' : ''}`} />
-                          </div>
-                          <Select
-                            value={task.status}
-                            onValueChange={(value) => {
-                              handleStatusChange(task.id, value);
-                            }}
-                          >
+                            </div>
+                            <Select
+                              value={task.status}
+                              onValueChange={(value) => {
+                                handleStatusChange(task.id, value);
+                              }}
+                            >
                             <SelectTrigger 
                               className="w-[130px] h-6 px-1.5 border-0 hover:bg-slate-100 flex items-center justify-center gap-1"
                               onClick={(e) => {
@@ -1066,24 +1066,24 @@ export default function Tasks() {
                             >
                               <StatusIcon className={`w-3 h-3 ${getStatusColor(task.status)} flex-shrink-0`} />
                               <SelectValue className="text-xs font-medium" />
-                            </SelectTrigger>
+                              </SelectTrigger>
                             <SelectContent position="item-aligned" onClick={(e) => e.stopPropagation()}>
-                              <SelectItem value="todo">To Do</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="blocked">Blocked</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                                <SelectItem value="todo">To Do</SelectItem>
+                                <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="blocked">Blocked</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         
                         {/* Centered content area */}
                         <div className="flex-1 flex flex-col justify-center pt-2">
                           {/* Task Title */}
                           <h3 className={`font-semibold text-slate-900 text-sm mb-1.5 line-clamp-2 leading-snug ${
                             task.status === 'completed' ? 'line-through text-slate-500' : ''
-                          }`}>
-                            {task.title}
-                          </h3>
+                            }`}>
+                              {task.title}
+                            </h3>
                           
                           {/* Description - always reserve space */}
                           <div className="min-h-[40px]">
@@ -1098,30 +1098,30 @@ export default function Tasks() {
                         {/* Metadata badges */}
                         <div className="mt-auto pt-0.5 border-t border-slate-100">
                           <div className="flex flex-wrap items-center gap-1 text-xs">
-                            {task.due_date && (
-                              <Badge 
-                                variant="outline" 
+                          {task.due_date && (
+                            <Badge 
+                              variant="outline" 
                                 className={`flex items-center gap-0.5 text-xs px-1.5 py-0.5 ${
                                   isOverdue ? 'bg-red-50 text-red-700 border-red-200' : 
                                   isTaskToday(task) ? 'bg-amber-50 text-amber-700 border-amber-200' :
                                   'text-slate-600 bg-slate-50 border-slate-200'
-                                }`}
-                              >
+                              }`}
+                            >
                                 <Calendar className="w-2.5 h-2.5" />
-                                {isTaskToday(task) ? 'Today' : format(new Date(task.due_date), 'MMM d')}
-                              </Badge>
-                            )}
+                              {isTaskToday(task) ? 'Today' : format(new Date(task.due_date), 'MMM d')}
+                            </Badge>
+                          )}
                             {task.estimated_time && (
                               <Badge variant="outline" className="text-slate-600 bg-slate-50 border-slate-200 flex items-center gap-0.5 px-1.5 py-0.5">
                                 <Clock className="w-2.5 h-2.5" />
                                 {task.estimated_time}m
                               </Badge>
                             )}
-                            {accountName && (
+                          {accountName && (
                               <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200 flex items-center gap-0.5 px-1.5 py-0.5 truncate max-w-[100px]">
                                 <Building2 className="w-2.5 h-2.5 flex-shrink-0" />
                                 <span className="truncate text-xs">{accountName}</span>
-                              </Badge>
+                            </Badge>
                             )}
                           </div>
                           {/* Labels row */}

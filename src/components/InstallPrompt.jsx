@@ -112,19 +112,21 @@ export default function InstallPrompt() {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: isMobile ? 'calc(100% - 32px)' : '360px',
-          maxWidth: '360px',
-          maxHeight: 'calc(100vh - 64px)',
+          width: '280px',
+          height: '280px',
           backgroundColor: 'white',
           borderRadius: '16px',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-          padding: '20px',
+          padding: '24px',
           zIndex: 10000,
           border: '1px solid #e2e8f0',
           animation: 'popIn 0.3s ease-out',
           overflow: 'hidden',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxSizing: 'border-box'
         }}
       >
       <style>{`
@@ -148,123 +150,99 @@ export default function InstallPrompt() {
         }
       `}</style>
       
-      <div style={{ position: 'relative' }}>
-        <button
-          onClick={handleDismiss}
+      <button
+        onClick={handleDismiss}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1,
+          width: '24px',
+          height: '24px'
+        }}
+        aria-label="Dismiss"
+      >
+        <X size={18} style={{ color: '#94a3b8' }} />
+      </button>
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', flex: 1, justifyContent: 'center', width: '100%' }}>
+        <div
           style={{
-            position: 'absolute',
-            top: '-8px',
-            right: '-8px',
-            background: 'white',
-            border: '1px solid #e2e8f0',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            padding: '6px',
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1,
-            width: '32px',
-            height: '32px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+            flexShrink: 0
           }}
-          aria-label="Dismiss"
         >
-          <X size={16} style={{ color: '#64748b' }} />
-        </button>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '24px' }}>LE</span>
-          </div>
-          
-          <div style={{ width: '100%' }}>
-            <h3 style={{ 
-              margin: '0 0 8px 0', 
-              fontSize: '18px', 
-              fontWeight: '600', 
-              color: '#0f172a'
+          <span style={{ color: 'white', fontWeight: 'bold', fontSize: '28px' }}>LE</span>
+        </div>
+        
+        <div style={{ width: '100%' }}>
+          <h3 style={{ 
+            margin: '0 0 8px 0', 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#0f172a'
+          }}>
+            Install LECRM
+          </h3>
+          {isIOS ? (
+            <p style={{ 
+              margin: '0 0 12px 0', 
+              fontSize: '12px', 
+              color: '#64748b', 
+              lineHeight: '1.4' 
             }}>
-              Install LECRM
-            </h3>
-            {isIOS ? (
-              <div style={{ textAlign: 'left' }}>
-                <p style={{ 
-                  margin: '0 0 8px 0', 
-                  fontSize: '13px', 
-                  color: '#64748b', 
-                  lineHeight: '1.4' 
-                }}>
-                  Add to your home screen:
-                </p>
-                <ol style={{ 
-                  margin: '0 0 0 0', 
-                  paddingLeft: '18px', 
-                  fontSize: '13px', 
-                  color: '#64748b', 
-                  lineHeight: '1.5',
-                  listStyleType: 'decimal'
-                }}>
-                  <li style={{ marginBottom: '4px' }}>
-                    Tap <strong style={{ color: '#0f172a' }}>Share</strong>
-                  </li>
-                  <li style={{ marginBottom: '4px' }}>
-                    Select <strong style={{ color: '#0f172a' }}>"Add to Home Screen"</strong>
-                  </li>
-                  <li>
-                    Tap <strong style={{ color: '#0f172a' }}>"Add"</strong>
-                  </li>
-                </ol>
-              </div>
-            ) : (
-              <p style={{ 
-                margin: '0 0 16px 0', 
-                fontSize: '13px', 
-                color: '#64748b', 
-                lineHeight: '1.5' 
-              }}>
-                Get a faster, app-like experience with offline access.
-              </p>
-            )}
-            
-            {!isIOS && (
-              <button
-                onClick={handleInstallClick}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  backgroundColor: '#0f172a',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  minHeight: '44px',
-                  WebkitTapHighlightColor: 'transparent',
-                  touchAction: 'manipulation'
-                }}
-              >
-                <Download size={16} />
-                Install App
-              </button>
-            )}
-          </div>
+              Tap Share → Add to Home Screen
+            </p>
+          ) : (
+            <p style={{ 
+              margin: '0 0 16px 0', 
+              fontSize: '12px', 
+              color: '#64748b', 
+              lineHeight: '1.4' 
+            }}>
+              Get faster, app-like access
+            </p>
+          )}
+          
+          {!isIOS && (
+            <button
+              onClick={handleInstallClick}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                backgroundColor: '#0f172a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                minHeight: '40px',
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation'
+              }}
+            >
+              <Download size={14} />
+              Install
+            </button>
+          )}
         </div>
       </div>
     </div>

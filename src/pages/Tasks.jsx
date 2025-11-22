@@ -862,7 +862,16 @@ export default function Tasks() {
       >
         <div className="space-y-4">
           <Tabs value={activeFilter} onValueChange={setActiveFilter}>
-            <div className="overflow-x-auto -mx-4 px-4">
+            <div 
+              className="overflow-x-auto -mx-4 px-4"
+              style={(isPWA || isMobile || isNativeApp) ? {
+                overflowY: 'hidden',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x',
+                overscrollBehaviorX: 'contain',
+                overscrollBehaviorY: 'none'
+              } : {}}
+            >
               <TabsList className="bg-white/80 backdrop-blur-sm inline-flex w-auto flex-nowrap justify-start">
               <TabsTrigger value="inbox" className="flex items-center gap-2">
                 <Inbox className="w-4 h-4" />

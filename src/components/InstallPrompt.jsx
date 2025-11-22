@@ -113,7 +113,8 @@ export default function InstallPrompt() {
           left: isMobile ? '12px' : '20px',
           right: isMobile ? '12px' : '20px',
           maxWidth: isMobile ? '100%' : '400px',
-          maxHeight: isMobile ? '60vh' : 'auto',
+          maxHeight: isMobile ? `calc(100vh - max(32px, env(safe-area-inset-top, 32px)) - max(32px, env(safe-area-inset-bottom, 32px)))` : 'auto',
+          top: isMobile ? `max(32px, env(safe-area-inset-top, 32px))` : 'auto',
           margin: '0 auto',
           backgroundColor: 'white',
           borderRadius: isMobile ? '16px 16px 0 0' : '12px',
@@ -152,15 +153,18 @@ export default function InstallPrompt() {
         onClick={handleDismiss}
         style={{
           position: 'absolute',
-          top: '12px',
-          right: '12px',
+          top: isMobile ? '16px' : '12px',
+          right: isMobile ? '16px' : '12px',
           background: 'transparent',
           border: 'none',
           cursor: 'pointer',
-          padding: '4px',
+          padding: '6px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          zIndex: 1,
+          minWidth: '32px',
+          minHeight: '32px'
         }}
         aria-label="Dismiss"
       >
@@ -186,10 +190,10 @@ export default function InstallPrompt() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ 
             margin: '0 0 8px 0', 
-            fontSize: isMobile ? '18px' : '18px', 
+            fontSize: isMobile ? '17px' : '18px', 
             fontWeight: '600', 
             color: '#0f172a',
-            paddingRight: '28px'
+            paddingRight: isMobile ? '36px' : '32px'
           }}>
             Install LECRM
           </h3>

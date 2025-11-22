@@ -109,16 +109,16 @@ export default function InstallPrompt() {
       <div
         style={{
           position: 'fixed',
-          bottom: isMobile ? `max(20px, env(safe-area-inset-bottom, 20px))` : '20px',
-          left: isMobile ? '16px' : '20px',
-          right: isMobile ? '16px' : '20px',
+          bottom: isMobile ? `max(16px, env(safe-area-inset-bottom, 16px))` : '20px',
+          left: isMobile ? '12px' : '20px',
+          right: isMobile ? '12px' : '20px',
           maxWidth: isMobile ? '100%' : '400px',
-          maxHeight: isMobile ? `calc(100vh - max(40px, env(safe-area-inset-top, 40px)) - max(40px, env(safe-area-inset-bottom, 40px)))` : 'auto',
+          maxHeight: isMobile ? '60vh' : 'auto',
           margin: '0 auto',
           backgroundColor: 'white',
           borderRadius: isMobile ? '16px 16px 0 0' : '12px',
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-          padding: isMobile ? '24px 20px max(24px, env(safe-area-inset-bottom, 24px))' : '20px',
+          padding: isMobile ? '20px 16px max(20px, env(safe-area-inset-bottom, 20px))' : '20px',
           zIndex: 10000,
           border: '1px solid #e2e8f0',
           animation: 'slideUp 0.3s ease-out',
@@ -167,12 +167,12 @@ export default function InstallPrompt() {
         <X size={20} style={{ color: '#64748b' }} />
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? '12px' : '16px' }}>
         <div
           style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
+            width: isMobile ? '40px' : '48px',
+            height: isMobile ? '40px' : '48px',
+            borderRadius: '10px',
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             display: 'flex',
             alignItems: 'center',
@@ -180,42 +180,42 @@ export default function InstallPrompt() {
             flexShrink: 0
           }}
         >
-          <span style={{ color: 'white', fontWeight: 'bold', fontSize: '20px' }}>LE</span>
+          <span style={{ color: 'white', fontWeight: 'bold', fontSize: isMobile ? '16px' : '20px' }}>LE</span>
         </div>
         
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ 
-            margin: '0 0 12px 0', 
-            fontSize: isMobile ? '20px' : '18px', 
+            margin: '0 0 8px 0', 
+            fontSize: isMobile ? '18px' : '18px', 
             fontWeight: '600', 
             color: '#0f172a',
-            paddingRight: '32px'
+            paddingRight: '28px'
           }}>
             Install LECRM
           </h3>
           {isIOS ? (
             <div>
               <p style={{ 
-                margin: '0 0 16px 0', 
-                fontSize: isMobile ? '15px' : '14px', 
+                margin: '0 0 10px 0', 
+                fontSize: isMobile ? '14px' : '14px', 
                 color: '#64748b', 
-                lineHeight: '1.6' 
+                lineHeight: '1.5' 
               }}>
                 Install LECRM to your home screen for quick access:
               </p>
               <ol style={{ 
-                margin: '0 0 16px 0', 
-                paddingLeft: '24px', 
-                fontSize: isMobile ? '15px' : '14px', 
+                margin: '0 0 0 0', 
+                paddingLeft: '20px', 
+                fontSize: isMobile ? '14px' : '14px', 
                 color: '#64748b', 
-                lineHeight: '2',
+                lineHeight: '1.6',
                 listStyleType: 'decimal'
               }}>
-                <li style={{ marginBottom: '8px' }}>
+                <li style={{ marginBottom: '6px' }}>
                   Tap the <strong style={{ color: '#0f172a' }}>Share</strong> button 
-                  <span style={{ fontSize: '18px', marginLeft: '4px' }}>⎋</span>
+                  <span style={{ fontSize: '16px', marginLeft: '4px' }}>⎋</span>
                 </li>
-                <li style={{ marginBottom: '8px' }}>
+                <li style={{ marginBottom: '6px' }}>
                   Scroll down and tap <strong style={{ color: '#0f172a' }}>"Add to Home Screen"</strong>
                 </li>
                 <li>
@@ -225,10 +225,10 @@ export default function InstallPrompt() {
             </div>
           ) : (
             <p style={{ 
-              margin: '0 0 16px 0', 
-              fontSize: isMobile ? '15px' : '14px', 
+              margin: '0 0 12px 0', 
+              fontSize: isMobile ? '14px' : '14px', 
               color: '#64748b', 
-              lineHeight: '1.6' 
+              lineHeight: '1.5' 
             }}>
               Install LECRM for a faster, app-like experience with offline access.
             </p>
@@ -239,12 +239,12 @@ export default function InstallPrompt() {
               onClick={handleInstallClick}
               style={{
                 width: '100%',
-                padding: isMobile ? '14px 16px' : '12px 16px',
+                padding: isMobile ? '12px 16px' : '12px 16px',
                 backgroundColor: '#0f172a',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                fontSize: isMobile ? '15px' : '14px',
+                fontSize: isMobile ? '14px' : '14px',
                 fontWeight: '500',
                 cursor: 'pointer',
                 display: 'flex',
@@ -252,11 +252,12 @@ export default function InstallPrompt() {
                 justifyContent: 'center',
                 gap: '8px',
                 minHeight: '44px',
+                marginTop: '12px',
                 WebkitTapHighlightColor: 'transparent',
                 touchAction: 'manipulation'
               }}
             >
-              <Download size={18} />
+              <Download size={16} />
               Install App
             </button>
           )}

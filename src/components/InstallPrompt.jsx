@@ -114,6 +114,8 @@ export default function InstallPrompt() {
           transform: 'translate(-50%, -50%)',
           width: '280px',
           height: '280px',
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100vh - 32px)',
           backgroundColor: 'white',
           borderRadius: '16px',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
@@ -126,7 +128,8 @@ export default function InstallPrompt() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          margin: '16px'
         }}
       >
       <style>{`

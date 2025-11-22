@@ -266,6 +266,7 @@ export default function InstallPrompt() {
             )}
           </div>
         </div>
+      </div>
     </div>
     </>
   );

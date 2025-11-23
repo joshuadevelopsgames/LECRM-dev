@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import {
   Plus,
@@ -14,7 +14,9 @@ import {
   Mail,
   Phone,
   Linkedin,
-  Building2
+  Building2,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import {
   Select,
@@ -35,9 +37,11 @@ import { Textarea } from "@/components/ui/textarea";
 import TutorialTooltip from '../components/TutorialTooltip';
 
 export default function Contacts() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
 
   const queryClient = useQueryClient();
 
@@ -257,11 +261,126 @@ export default function Contacts() {
               <SelectItem value="user">User</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className={`h-8 px-3 ${viewMode === 'list' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className={`h-8 px-3 ${viewMode === 'card' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </Card>
 
-      {/* Contacts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Contacts List View */}
+      {viewMode === 'list' ? (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Contact
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Title
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Account
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Phone
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-200">
+                {filteredContacts.map((contact) => (
+                  <tr 
+                    key={contact.id}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(createPageUrl(`AccountDetail?id=${contact.account_id}`))}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Users className="w-5 h-5 text-slate-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-900">
+                            {contact.first_name} {contact.last_name}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-slate-600">
+                      {contact.title || '-'}
+                    </td>
+                    <td className="px-4 py-4">
+                      {contact.account_name ? (
+                        <Link 
+                          to={createPageUrl(`AccountDetail?id=${contact.account_id}`)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          <Building2 className="w-4 h-4" />
+                          {contact.account_name}
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <Badge variant="outline" className={getRoleColor(contact.role)}>
+                        {contact.role.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-4">
+                      <a 
+                        href={`mailto:${contact.email}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-sm text-slate-600 hover:text-blue-600"
+                      >
+                        {contact.email}
+                      </a>
+                    </td>
+                    <td className="px-4 py-4">
+                      {contact.phone ? (
+                        <a 
+                          href={`tel:${contact.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sm text-slate-600 hover:text-blue-600"
+                        >
+                          {contact.phone}
+                        </a>
+                      ) : (
+                        <span className="text-sm text-slate-400">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : (
+        /* Contacts Card View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredContacts.map((contact) => (
           <Card key={contact.id} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-5">
@@ -334,7 +453,8 @@ export default function Contacts() {
             </CardContent>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
 
       {filteredContacts.length === 0 && (
         <Card className="p-12 text-center">

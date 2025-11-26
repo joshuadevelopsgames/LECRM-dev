@@ -444,25 +444,44 @@ export default function Tutorial() {
     );
   }
 
+  // Force white background on mount
+  useEffect(() => {
+    document.body.style.backgroundColor = '#ffffff';
+    document.documentElement.style.backgroundColor = '#ffffff';
+    const root = document.getElementById('root');
+    if (root) {
+      root.style.backgroundColor = '#ffffff';
+    }
+    return () => {
+      // Reset on unmount if needed
+    };
+  }, []);
+
   return (
     <>
       <style>{`
-        body { background-color: #ffffff !important; }
-        html { background-color: #ffffff !important; }
-        #root { background-color: #ffffff !important; }
-        #root > div { background-color: #ffffff !important; }
+        body { background-color: #ffffff !important; background-image: none !important; }
+        html { background-color: #ffffff !important; background-image: none !important; }
+        #root { background-color: #ffffff !important; background-image: none !important; }
+        #root > div { background-color: #ffffff !important; background-image: none !important; }
+        .bg-gradient-to-r { display: none !important; }
       `}</style>
       <div 
-        className="min-h-screen p-4 bg-white" 
+        className="min-h-screen p-4" 
         style={{ 
           backgroundColor: '#ffffff',
           minHeight: '100vh',
           width: '100%',
-          position: 'relative',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflowY: 'auto',
           zIndex: 1
         }}
       >
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto" style={{ backgroundColor: '#ffffff' }}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>

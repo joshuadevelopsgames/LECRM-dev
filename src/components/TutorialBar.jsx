@@ -22,8 +22,14 @@ export default function TutorialBar() {
   const location = useLocation();
   const { isTutorialMode, currentStep, exitTutorial, goToTutorialStep } = useTutorial();
 
-  // Don't show bar on tutorial page or login page
-  if (location.pathname === '/tutorial' || location.pathname === '/login') return null;
+  // Don't show bar on tutorial page or login page - check this FIRST
+  const isOnTutorialPage = location.pathname === '/tutorial' || location.pathname.startsWith('/tutorial');
+  const isOnLoginPage = location.pathname === '/login' || location.pathname.startsWith('/login');
+  
+  if (isOnTutorialPage || isOnLoginPage) {
+    return null;
+  }
+  
   // Only show if in tutorial mode
   if (!isTutorialMode) return null;
 

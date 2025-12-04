@@ -1,0 +1,11 @@
+Lead Name,First Name,Last Name,Position,Billing Contact,Email 1,Email 2,Phone 1,Phone 2,Do Not Email,Do Not Mail,Do Not Call,Send SMS,Notes
+Acme Landscaping Services,John,Smith,Owner,Yes,john@acmelandscaping.com,j.smith@gmail.com,403-555-1234,403-555-5678,No,No,No,Phone 1,Primary decision maker for all landscaping contracts
+Acme Landscaping Services,Jane,Doe,Office Manager,No,jane@acmelandscaping.com,,403-555-1234,,No,No,No,Phone 1,Handles scheduling and day-to-day operations
+Green Gardens Inc,Bob,Johnson,President,Yes,bob@greengardens.com,bjohnson@greengardens.com,403-555-9012,403-555-9013,No,No,No,Phone 2,Prefers SMS to cell phone
+Green Gardens Inc,Alice,Brown,Accountant,No,alice@greengardens.com,,403-555-9012,,No,No,No,Do not SMS,Handles all billing and invoicing
+Mountain View Property Management,Sarah,Wilson,Property Manager,Yes,sarah@mvpm.ca,,587-555-3456,587-555-3457,No,No,No,Phone 1,Manages 15 commercial properties
+Mountain View Property Management,Michael,Taylor,Maintenance Supervisor,No,michael@mvpm.ca,,587-555-3456,,No,No,Yes,Phone 1,Do not call - prefers email for maintenance requests
+Riverside Commercial Properties,Emily,Martinez,VP Operations,Yes,emily.martinez@riversidecp.com,emartinez@personal.com,403-555-7890,,No,No,No,Phone 1,Decision maker for 20+ locations
+Prairie Estates Ltd,David,Lee,President,Yes,david@prairieestates.ca,,403-555-2468,,Yes,No,No,Do not SMS,Prefers email only - do not call or SMS
+Prairie Estates Ltd,Jennifer,Kim,Operations Manager,No,jennifer@prairieestates.ca,,403-555-2468,,No,No,No,Phone 1,Secondary contact for day-to-day operations
+Skyline Commercial Group,Robert,Anderson,Facilities Director,Yes,robert@skylinecommercial.com,,587-555-8642,587-555-8643,No,Yes,No,Phone 2,Primary contact - prefers phone calls over mail

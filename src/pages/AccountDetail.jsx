@@ -25,6 +25,15 @@ import ContactsList from '../components/account/ContactsList';
 import AccountScore from '../components/account/AccountScore';
 import SalesInsights from '../components/account/SalesInsights';
 import ResearchNotes from '../components/account/ResearchNotes';
+import KeyDates from '../components/account/KeyDates';
+import PaymentMethod from '../components/account/PaymentMethod';
+import EstimatesStats from '../components/account/EstimatesStats';
+import TotalWork from '../components/account/TotalWork';
+import GeneralInformation from '../components/account/GeneralInformation';
+import TrackingAssignment from '../components/account/TrackingAssignment';
+import AccountTags from '../components/account/AccountTags';
+import EstimatesTab from '../components/account/EstimatesTab';
+import JobsitesTab from '../components/account/JobsitesTab';
 import AddInteractionDialog from '../components/account/AddInteractionDialog';
 import EditAccountDialog from '../components/account/EditAccountDialog';
 import TutorialTooltip from '../components/TutorialTooltip';
@@ -75,6 +84,20 @@ export default function AccountDetail() {
   const { data: researchNotes = [] } = useQuery({
     queryKey: ['research-notes', accountId],
     queryFn: () => base44.entities.ResearchNote.filter({ account_id: accountId }, '-recorded_date')
+  });
+
+  // Mock estimates for now - TODO: Replace with actual estimates API
+  const estimates = [];
+  
+  // Mock jobsites for now - TODO: Replace with actual jobsites API
+  const jobsites = [];
+
+  // Handle account updates
+  const updateAccountMutation = useMutation({
+    mutationFn: (data) => base44.entities.Account.update(accountId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['account', accountId] });
+    }
   });
 
   if (isLoading || !account) {
@@ -138,162 +161,127 @@ export default function AccountDetail() {
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Organization Score</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {account.organization_score || '—'}
-                </p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-emerald-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Contacts</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{contacts.length}</p>
-              </div>
-              <Users className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Interactions</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{interactions.length}</p>
-              </div>
-              <MessageSquare className="w-8 h-8 text-indigo-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Open Tasks</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {tasks.filter(t => t.status !== 'completed').length}
-                </p>
-              </div>
-              <FileText className="w-8 h-8 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Account Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {account.industry && (
-              <div>
-                <p className="text-sm text-slate-600">Industry</p>
-                <p className="font-medium text-slate-900 mt-1">{account.industry}</p>
-              </div>
-            )}
-            {account.annual_revenue && (
-              <div>
-                <p className="text-sm text-slate-600">Annual Revenue</p>
-                <p className="font-medium text-slate-900 mt-1">
-                  ${account.annual_revenue.toLocaleString()}
-                </p>
-              </div>
-            )}
-            {account.assigned_to && (
-              <div>
-                <p className="text-sm text-slate-600">Account Owner</p>
-                <p className="font-medium text-slate-900 mt-1">{account.assigned_to}</p>
-              </div>
-            )}
-            {account.last_interaction_date && (
-              <div>
-                <p className="text-sm text-slate-600">Last Contact</p>
-                <p className="font-medium text-slate-900 mt-1">
-                  {format(new Date(account.last_interaction_date), 'MMM d, yyyy')}
-                </p>
-              </div>
-            )}
-            {account.renewal_date && (
-              <div>
-                <p className="text-sm text-slate-600">Renewal Date</p>
-                <p className="font-medium text-slate-900 mt-1">
-                  {format(new Date(account.renewal_date), 'MMM d, yyyy')}
-                </p>
-              </div>
-            )}
-            {account.phone && (
-              <div>
-                <p className="text-sm text-slate-600">Phone</p>
-                <p className="font-medium text-slate-900 mt-1">{account.phone}</p>
-              </div>
-            )}
-            {account.website && (
-              <div>
-                <p className="text-sm text-slate-600">Website</p>
-                <a 
-                  href={account.website.startsWith('http') ? account.website : `https://${account.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-blue-600 hover:text-blue-800 mt-1 inline-block"
-                >
-                  {account.website}
-                </a>
-              </div>
-            )}
-            {account.address && (
-              <div className="md:col-span-2">
-                <p className="text-sm text-slate-600">Address</p>
-                <p className="font-medium text-slate-900 mt-1">{account.address}</p>
-              </div>
-            )}
-          </div>
-          {account.notes && (
-            <div className="mt-6 pt-6 border-t border-slate-200">
-              <p className="text-sm text-slate-600 mb-2">Notes</p>
-              <p className="text-slate-900">{account.notes}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <Tabs defaultValue="interactions" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="interactions">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Interactions ({interactions.length})
+      {/* Tabs - LMN Style */}
+      <Tabs defaultValue="info" className="space-y-6">
+        <TabsList className="w-full justify-start bg-white border-b rounded-none h-auto p-0 space-x-0">
+          <TabsTrigger 
+            value="info" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Info
           </TabsTrigger>
-          <TabsTrigger value="contacts">
-            <Users className="w-4 h-4 mr-2" />
-            Contacts ({contacts.length})
+          <TabsTrigger 
+            value="contacts"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Contacts
           </TabsTrigger>
-          <TabsTrigger value="scoring">
-            <TrendingUp className="w-4 h-4 mr-2" />
-            Scoring
+          <TabsTrigger 
+            value="jobsites"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Jobsites
           </TabsTrigger>
-          <TabsTrigger value="insights">
-            <Lightbulb className="w-4 h-4 mr-2" />
-            Sales Insights ({salesInsights.length})
+          <TabsTrigger 
+            value="estimates"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Estimates
           </TabsTrigger>
-          <TabsTrigger value="research">
-            <BookOpen className="w-4 h-4 mr-2" />
-            Research Notes ({researchNotes.length})
+          <TabsTrigger 
+            value="communications"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Communication History
+          </TabsTrigger>
+          <TabsTrigger 
+            value="todos"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            To-Dos
+          </TabsTrigger>
+          <TabsTrigger 
+            value="files"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Files
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="interactions" className="space-y-6">
+        {/* Info Tab - LMN Style Overview */}
+        <TabsContent value="info" className="space-y-6 mt-6">
+          {/* Top Stats Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KeyDates account={account} />
+            <PaymentMethod 
+              account={account} 
+              onAddPayment={() => alert('Payment method feature coming soon')}
+            />
+            <EstimatesStats estimates={estimates} />
+            <TotalWork estimates={estimates} />
+          </div>
+
+          {/* General Information and Tracking */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GeneralInformation 
+              account={account} 
+              onUpdate={(data) => updateAccountMutation.mutate(data)}
+            />
+            <div className="space-y-6">
+              <TrackingAssignment 
+                account={account}
+                onUpdate={(data) => updateAccountMutation.mutate(data)}
+              />
+              <AccountTags 
+                tags={account.tags || []}
+                onUpdateTags={(tags) => updateAccountMutation.mutate({ tags })}
+              />
+            </div>
+          </div>
+
+          {/* Organization Score Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Organization Score</CardTitle>
+                <Badge className="bg-emerald-100 text-emerald-800">
+                  {account.organization_score || 0} / 100
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <AccountScore 
+                accountId={accountId}
+                scorecards={scorecards}
+                currentScore={account.organization_score}
+                accountName={account.name}
+                compact={true}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Contacts Tab */}
+        <TabsContent value="contacts">
+          <ContactsList 
+            contacts={contacts} 
+            accountId={accountId}
+            accountName={account.name}
+          />
+        </TabsContent>
+
+        {/* Jobsites Tab */}
+        <TabsContent value="jobsites">
+          <JobsitesTab jobsites={jobsites} accountId={accountId} />
+        </TabsContent>
+
+        {/* Estimates Tab */}
+        <TabsContent value="estimates">
+          <EstimatesTab estimates={estimates} accountId={accountId} />
+        </TabsContent>
+
+        {/* Communication History Tab (formerly Interactions) */}
+        <TabsContent value="communications" className="space-y-6">
           <GmailConnection 
             onSyncComplete={(result) => {
               queryClient.invalidateQueries({ queryKey: ['interactions', accountId] });
@@ -307,35 +295,67 @@ export default function AccountDetail() {
           />
         </TabsContent>
 
-        <TabsContent value="contacts">
-          <ContactsList 
-            contacts={contacts} 
-            accountId={accountId}
-            accountName={account.name}
-          />
+        {/* To-Dos Tab (formerly Tasks) */}
+        <TabsContent value="todos" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">To-Dos ({tasks.length})</h3>
+            <Button className="bg-emerald-600 hover:bg-emerald-700">
+              <Plus className="w-4 h-4 mr-2" />
+              New To-Do
+            </Button>
+          </div>
+          
+          {tasks.length > 0 ? (
+            <div className="space-y-2">
+              {tasks.map(task => (
+                <Card key={task.id} className="p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-medium text-slate-900">{task.title}</h4>
+                      {task.description && (
+                        <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+                      )}
+                      {task.due_date && (
+                        <p className="text-sm text-slate-500 mt-2">
+                          <Calendar className="w-3 h-3 inline mr-1" />
+                          Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
+                        </p>
+                      )}
+                    </div>
+                    <Badge className={
+                      task.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                      task.priority === 'critical' ? 'bg-red-100 text-red-800' :
+                      'bg-amber-100 text-amber-800'
+                    }>
+                      {task.status}
+                    </Badge>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-12 text-center">
+              <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-slate-600">No to-dos for this account</p>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="scoring">
-          <AccountScore 
-            accountId={accountId}
-            scorecards={scorecards}
-            currentScore={account.organization_score}
-            accountName={account.name}
-          />
+        {/* Files Tab */}
+        <TabsContent value="files">
+          <Card className="p-12 text-center">
+            <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-slate-900 mb-1">No files yet</h3>
+            <p className="text-slate-600 mb-4">
+              Upload documents, images, or other files related to this account
+            </p>
+            <Button className="bg-emerald-600 hover:bg-emerald-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Upload File
+            </Button>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="insights">
-          <SalesInsights 
-            accountId={accountId}
-            interactions={interactions}
-          />
-        </TabsContent>
-
-        <TabsContent value="research">
-          <ResearchNotes 
-            accountId={accountId}
-          />
-        </TabsContent>
       </Tabs>
 
       {/* Dialogs */}

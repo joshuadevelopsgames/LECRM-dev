@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TutorialTooltip from '../components/TutorialTooltip';
+import ImportLeadsDialog from '../components/ImportLeadsDialog';
 import {
   Plus,
   Search,
@@ -18,7 +19,8 @@ import {
   Filter,
   ArrowUpDown,
   LayoutGrid,
-  List
+  List,
+  Upload
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import {
@@ -45,6 +47,7 @@ export default function Accounts() {
   const [filterSegment, setFilterSegment] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
   
   const queryClient = useQueryClient();
@@ -142,18 +145,34 @@ export default function Accounts() {
             <p className="text-slate-600 mt-1">{filteredAccounts.length} total accounts</p>
           </div>
         </TutorialTooltip>
-        <TutorialTooltip
-          tip="Click this button to create a new account (company) in your CRM. Fill in the company name, type, revenue segment, and other details."
-          step={2}
-          position="bottom"
-        >
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-slate-900 hover:bg-slate-800">
-              <Plus className="w-4 h-4 mr-2" />
-              New Account
+        <div className="flex gap-2">
+          <TutorialTooltip
+            tip="Click this button to import leads from LMN (golmn.com) via CSV. Upload a file to create multiple accounts and contacts at once."
+            step={2}
+            position="bottom"
+          >
+            <Button 
+              onClick={() => setIsImportDialogOpen(true)}
+              variant="outline"
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import from LMN
             </Button>
-          </DialogTrigger>
+          </TutorialTooltip>
+          
+          <TutorialTooltip
+            tip="Click this button to create a new account (company) in your CRM. Fill in the company name, type, revenue segment, and other details."
+            step={2}
+            position="bottom"
+          >
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-slate-900 hover:bg-slate-800">
+                <Plus className="w-4 h-4 mr-2" />
+                New Account
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Account</DialogTitle>
@@ -240,7 +259,14 @@ export default function Accounts() {
           </DialogContent>
         </Dialog>
         </TutorialTooltip>
+        </div>
       </div>
+
+      {/* Import Leads Dialog */}
+      <ImportLeadsDialog 
+        open={isImportDialogOpen} 
+        onClose={() => setIsImportDialogOpen(false)}
+      />
 
       {/* Filters & Search */}
       <TutorialTooltip

@@ -16,7 +16,8 @@ import {
   Linkedin,
   Building2,
   LayoutGrid,
-  List
+  List,
+  Upload
 } from 'lucide-react';
 import {
   Select,
@@ -35,12 +36,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import TutorialTooltip from '../components/TutorialTooltip';
+import ImportLeadsDialog from '../components/ImportLeadsDialog';
 
 export default function Contacts() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
 
   const queryClient = useQueryClient();
@@ -119,14 +122,24 @@ export default function Contacts() {
             <h1 className="text-3xl font-bold text-slate-900">Contacts</h1>
             <p className="text-slate-600 mt-1">{filteredContacts.length} total contacts</p>
           </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-slate-900 hover:bg-slate-800">
-              <Plus className="w-4 h-4 mr-2" />
-              New Contact
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setIsImportDialogOpen(true)}
+              variant="outline"
+              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import from LMN
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-slate-900 hover:bg-slate-800">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Contact
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Contact</DialogTitle>
             </DialogHeader>
@@ -234,7 +247,8 @@ export default function Contacts() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+          </div>
+        </div>
       </TutorialTooltip>
 
       {/* Filters */}
@@ -467,6 +481,12 @@ export default function Contacts() {
           </p>
         </Card>
       )}
+
+      {/* Import Leads Dialog */}
+      <ImportLeadsDialog 
+        open={isImportDialogOpen} 
+        onClose={() => setIsImportDialogOpen(false)}
+      />
     </div>
   );
 }

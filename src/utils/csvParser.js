@@ -4,33 +4,32 @@
  */
 
 /**
- * Parse CSV text into array of objects
+ * Parse CSV text into array of arrays
  * Handles quoted fields with commas properly
+ * Returns array of arrays (not objects) for better compatibility
  */
 export function parseCSV(csvText) {
-  const lines = csvText.split('\n');
-  if (lines.length < 2) return [];
+  if (!csvText || typeof csvText !== 'string') {
+    console.error('Invalid CSV text provided');
+    return [];
+  }
 
-  // Parse header row
-  const headers = parseCSVLine(lines[0]);
+  const lines = csvText.split('\n');
+  if (lines.length < 1) return [];
+
+  const rows = [];
   
-  // Parse data rows
-  const data = [];
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     
     const values = parseCSVLine(line);
     if (values.length === 0) continue;
     
-    const row = {};
-    headers.forEach((header, index) => {
-      row[header] = values[index] || '';
-    });
-    data.push(row);
+    rows.push(values);
   }
   
-  return data;
+  return rows;
 }
 
 /**

@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { parseContactsExport } from '@/utils/lmnContactsExportParser';
 import { parseLeadsList } from '@/utils/lmnLeadsListParser';
 import { mergeContactData } from '@/utils/lmnMergeData';
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -45,62 +46,107 @@ export default function ImportLeadsDialog({ open, onClose }) {
   
   const queryClient = useQueryClient();
 
-  // Process Contacts Export file
-  const processContactsFile = (file) => {
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        const parsed = parseContactsExport(text);
-        
-        if (parsed.stats.error) {
-          setError(`Contacts Export: ${parsed.stats.error}`);
-          return;
+  // Convert XLSX file to CSV text
+  const convertXlsxToCsv = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const csvText = XLSX.utils.sheet_to_csv(worksheet);
+          resolve(csvText);
+        } catch (err) {
+          reject(err);
         }
-        
-        setContactsData(parsed);
-        setContactsFile(file);
-        
-        // If both files loaded, merge them
-        if (leadsData) {
-          mergeBothFiles(parsed, leadsData);
-        }
-      } catch (err) {
-        setError(`Error reading Contacts Export: ${err.message}`);
-      }
-    };
-    reader.readAsText(file);
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsArrayBuffer(file);
+    });
   };
 
-  // Process Leads List file
-  const processLeadsFile = (file) => {
+  // Process Contacts Export file (CSV or XLSX)
+  const processContactsFile = async (file) => {
     if (!file) return;
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        const parsed = parseLeadsList(text);
-        
-        if (parsed.stats.error) {
-          setError(`Leads List: ${parsed.stats.error}`);
-          return;
-        }
-        
-        setLeadsData(parsed);
-        setLeadsFile(file);
-        
-        // If both files loaded, merge them
-        if (contactsData) {
-          mergeBothFiles(contactsData, parsed);
-        }
-      } catch (err) {
-        setError(`Error reading Leads List: ${err.message}`);
+    // Check file type
+    const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    try {
+      let csvText;
+      
+      if (isXlsx) {
+        csvText = await convertXlsxToCsv(file);
+      } else {
+        // Read CSV file as text
+        csvText = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsText(file);
+        });
       }
-    };
-    reader.readAsText(file);
+      
+      const parsed = parseContactsExport(csvText);
+      
+      if (parsed.stats.error) {
+        setError(`Contacts Export: ${parsed.stats.error}`);
+        return;
+      }
+      
+      setContactsData(parsed);
+      setContactsFile(file);
+      
+      // If both files loaded, merge them
+      if (leadsData) {
+        mergeBothFiles(parsed, leadsData);
+      }
+    } catch (err) {
+      setError(`Error reading Contacts Export: ${err.message}`);
+    }
+  };
+
+  // Process Leads List file (CSV or XLSX)
+  const processLeadsFile = async (file) => {
+    if (!file) return;
+    
+    // Check file type
+    const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    try {
+      let csvText;
+      
+      if (isXlsx) {
+        csvText = await convertXlsxToCsv(file);
+      } else {
+        // Read CSV file as text
+        csvText = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsText(file);
+        });
+      }
+      
+      const parsed = parseLeadsList(csvText);
+      
+      if (parsed.stats.error) {
+        setError(`Leads List: ${parsed.stats.error}`);
+        return;
+      }
+      
+      setLeadsData(parsed);
+      setLeadsFile(file);
+      
+      // If both files loaded, merge them
+      if (contactsData) {
+        mergeBothFiles(contactsData, parsed);
+      }
+    } catch (err) {
+      setError(`Error reading Leads List: ${err.message}`);
+    }
   };
 
   // Merge both CSVs
@@ -133,7 +179,14 @@ export default function ImportLeadsDialog({ open, onClose }) {
     e.stopPropagation();
     setContactsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processContactsFile(file);
+    if (file) {
+      const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (!isValidFile) {
+        setError('Please upload a CSV or XLSX file');
+        return;
+      }
+      processContactsFile(file);
+    }
   };
 
   // Drag and drop handlers for Leads List
@@ -154,7 +207,14 @@ export default function ImportLeadsDialog({ open, onClose }) {
     e.stopPropagation();
     setLeadsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processLeadsFile(file);
+    if (file) {
+      const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (!isValidFile) {
+        setError('Please upload a CSV or XLSX file');
+        return;
+      }
+      processLeadsFile(file);
+    }
   };
 
   // Import merged data with automatic merge/update
@@ -255,12 +315,12 @@ export default function ImportLeadsDialog({ open, onClose }) {
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-800">
-                    <p className="font-semibold mb-1">Both CSV files are required:</p>
+                    <p className="font-semibold mb-1">Both files are required (CSV or XLSX):</p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li><strong>Contacts Export</strong> - Has CRM IDs, Contact IDs, Tags, Archived status</li>
-                      <li><strong>Leads List</strong> - Has Position, Do Not Email/Mail/Call preferences</li>
+                      <li><strong>Contacts Export</strong> - Has CRM IDs, Contact IDs, Tags, Archived status (CSV or XLSX)</li>
+                      <li><strong>Leads List</strong> - Has Position, Do Not Email/Mail/Call preferences (CSV or XLSX)</li>
                     </ol>
-                    <p className="mt-2">The system will merge both files to create complete contact records.</p>
+                    <p className="mt-2">The system will merge both files to create complete contact records. Both CSV and XLSX formats are supported.</p>
                   </div>
                 </div>
               </Card>
@@ -317,8 +377,18 @@ export default function ImportLeadsDialog({ open, onClose }) {
                         </div>
                         <input
                           type="file"
-                          accept=".csv,text/csv,application/csv"
-                          onChange={(e) => processContactsFile(e.target.files[0])}
+                          accept=".csv,.xlsx,.xls,text/csv,application/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+                              if (!isValidFile) {
+                                setError('Please upload a CSV or XLSX file');
+                                return;
+                              }
+                              processContactsFile(file);
+                            }
+                          }}
                           className="hidden"
                           id="contacts-file-input"
                         />
@@ -329,6 +399,9 @@ export default function ImportLeadsDialog({ open, onClose }) {
                           </label>
                         </Button>
                         <p className="text-xs text-slate-500 mt-2">
+                          CSV or XLSX format
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
                           Has: CRM ID, Contact ID, Tags, Archived
                         </p>
                       </>
@@ -386,8 +459,18 @@ export default function ImportLeadsDialog({ open, onClose }) {
                         </div>
                         <input
                           type="file"
-                          accept=".csv,text/csv,application/csv"
-                          onChange={(e) => processLeadsFile(e.target.files[0])}
+                          accept=".csv,.xlsx,.xls,text/csv,application/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+                              if (!isValidFile) {
+                                setError('Please upload a CSV or XLSX file');
+                                return;
+                              }
+                              processLeadsFile(file);
+                            }
+                          }}
                           className="hidden"
                           id="leads-file-input"
                         />
@@ -398,6 +481,9 @@ export default function ImportLeadsDialog({ open, onClose }) {
                           </label>
                         </Button>
                         <p className="text-xs text-slate-500 mt-2">
+                          CSV or XLSX format
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
                           Has: Position, Do Not Email/Mail/Call
                         </p>
                       </>

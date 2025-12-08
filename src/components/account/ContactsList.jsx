@@ -4,7 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Plus, Mail, Phone, Linkedin } from 'lucide-react';
+import { Users, Plus, Mail, Phone, Linkedin, Archive } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ import {
 
 export default function ContactsList({ contacts, accountId, accountName }) {
   const [showDialog, setShowDialog] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const queryClient = useQueryClient();
 
   const [newContact, setNewContact] = useState({
@@ -72,6 +74,12 @@ export default function ContactsList({ contacts, accountId, accountName }) {
     };
     return colors[role] || colors.user;
   };
+
+  // Filter contacts by archived status
+  const filteredContacts = contacts.filter(contact => {
+    const isArchived = contact.status === 'archived' || contact.archived === true;
+    return showArchived ? isArchived : !isArchived;
+  });
 
   if (contacts.length === 0) {
     return (
@@ -183,57 +191,210 @@ export default function ContactsList({ contacts, accountId, accountName }) {
     );
   }
 
+  if (filteredContacts.length === 0 && !showArchived) {
+    return (
+      <>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-slate-900">{contacts.length} Contacts</h3>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-archived"
+                checked={showArchived}
+                onCheckedChange={setShowArchived}
+              />
+              <label htmlFor="show-archived" className="text-sm text-slate-600 cursor-pointer">
+                Show Archived
+              </label>
+            </div>
+            <Button onClick={() => setShowDialog(true)} size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Contact
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-slate-900 mb-1">No contacts yet</h3>
+            <p className="text-slate-600 mb-4">Add contacts to start building relationships</p>
+            <Button onClick={() => setShowDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add First Contact
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add New Contact</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>First Name *</Label>
+                  <Input
+                    value={newContact.first_name}
+                    onChange={(e) => setNewContact({ ...newContact, first_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Last Name *</Label>
+                  <Input
+                    value={newContact.last_name}
+                    onChange={(e) => setNewContact({ ...newContact, last_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Email *</Label>
+                  <Input
+                    type="email"
+                    value={newContact.email}
+                    onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={newContact.phone}
+                    onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={newContact.title}
+                    onChange={(e) => setNewContact({ ...newContact, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Role</Label>
+                  <Select
+                    value={newContact.role}
+                    onValueChange={(value) => setNewContact({ ...newContact, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="decision_maker">Decision Maker</SelectItem>
+                      <SelectItem value="influencer">Influencer</SelectItem>
+                      <SelectItem value="champion">Champion</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>LinkedIn URL</Label>
+                <Input
+                  value={newContact.linkedin_url}
+                  onChange={(e) => setNewContact({ ...newContact, linkedin_url: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Preferences/Notes</Label>
+                <Textarea
+                  value={newContact.preferences}
+                  onChange={(e) => setNewContact({ ...newContact, preferences: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreate}
+                disabled={!newContact.first_name || !newContact.last_name || !newContact.email}
+              >
+                Add Contact
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-slate-900">{contacts.length} Contacts</h3>
-        <Button onClick={() => setShowDialog(true)} size="sm">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Contact
-        </Button>
+        <h3 className="text-lg font-semibold text-slate-900">
+          {filteredContacts.length} {showArchived ? 'Archived' : 'Active'} Contact{filteredContacts.length !== 1 ? 's' : ''}
+        </h3>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-archived"
+              checked={showArchived}
+              onCheckedChange={setShowArchived}
+            />
+            <label htmlFor="show-archived" className="text-sm text-slate-600 cursor-pointer">
+              Show Archived
+            </label>
+          </div>
+          <Button onClick={() => setShowDialog(true)} size="sm">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Contact
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {contacts.map((contact) => (
-          <Card key={contact.id} className="hover:shadow-md transition-shadow">
+        {filteredContacts.map((contact) => {
+          const isArchived = contact.status === 'archived' || contact.archived === true;
+          return (
+          <Card key={contact.id} className={`hover:shadow-md transition-shadow ${isArchived ? 'bg-slate-50' : ''}`}>
             <CardContent className="p-5">
               <div className="space-y-3">
                 <div>
-                  <h4 className="font-semibold text-slate-900">
-                    {contact.first_name} {contact.last_name}
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className={`font-semibold ${isArchived ? 'text-slate-500' : 'text-slate-900'}`}>
+                      {contact.first_name} {contact.last_name}
+                    </h4>
+                    {isArchived && (
+                      <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+                        <Archive className="w-3 h-3 mr-1" />
+                        Archived
+                      </Badge>
+                    )}
+                  </div>
                   {contact.title && (
-                    <p className="text-sm text-slate-600">{contact.title}</p>
+                    <p className={`text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>{contact.title}</p>
                   )}
                 </div>
 
-                <Badge variant="outline" className={getRoleColor(contact.role)}>
+                <Badge variant="outline" className={`${getRoleColor(contact.role)} ${isArchived ? 'opacity-60' : ''}`}>
                   {contact.role ? contact.role.replace('_', ' ') : 'user'}
                 </Badge>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-slate-600">
+                <div className={`space-y-2 text-sm`}>
+                  <div className={`flex items-center gap-2 ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
                     <Mail className="w-4 h-4" />
-                    <a href={`mailto:${contact.email}`} className="hover:text-blue-600">
+                    <a href={`mailto:${contact.email}`} className={isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}>
                       {contact.email}
                     </a>
                   </div>
                   {contact.phone && (
-                    <div className="flex items-center gap-2 text-slate-600">
+                    <div className={`flex items-center gap-2 ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
                       <Phone className="w-4 h-4" />
-                      <a href={`tel:${contact.phone}`} className="hover:text-blue-600">
+                      <a href={`tel:${contact.phone}`} className={isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}>
                         {contact.phone}
                       </a>
                     </div>
                   )}
                   {contact.linkedin_url && (
-                    <div className="flex items-center gap-2 text-slate-600">
+                    <div className={`flex items-center gap-2 ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
                       <Linkedin className="w-4 h-4" />
                       <a 
                         href={contact.linkedin_url} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="hover:text-blue-600"
+                        className={isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}
                       >
                         LinkedIn Profile
                       </a>
@@ -242,15 +403,16 @@ export default function ContactsList({ contacts, accountId, accountName }) {
                 </div>
 
                 {contact.preferences && (
-                  <div className="pt-3 border-t border-slate-100">
-                    <p className="text-xs text-slate-500 mb-1">Preferences:</p>
-                    <p className="text-sm text-slate-700">{contact.preferences}</p>
+                  <div className={`pt-3 border-t ${isArchived ? 'border-slate-200' : 'border-slate-100'}`}>
+                    <p className={`text-xs mb-1 ${isArchived ? 'text-slate-400' : 'text-slate-500'}`}>Preferences:</p>
+                    <p className={`text-sm ${isArchived ? 'text-slate-500' : 'text-slate-700'}`}>{contact.preferences}</p>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>

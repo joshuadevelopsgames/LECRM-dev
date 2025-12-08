@@ -84,6 +84,7 @@ export function parseContactsExport(csvText) {
           account_type: type.toLowerCase(), // lead, client, other
           classification: classification.toLowerCase(),
           status: archived ? 'archived' : 'active',
+          archived: archived, // Boolean field for consistency
           tags: tags ? tags.split(',').map(t => t.trim()) : [],
           source: 'lmn_contacts_export',
           created_date: new Date().toISOString(),
@@ -111,6 +112,8 @@ export function parseContactsExport(csvText) {
         const stableContactId = contactId ? `lmn-contact-${contactId}` : `lmn-contact-${crmId}-${rowNum}`;
         const accountId = `lmn-account-${crmId}`;
         
+        const contactArchived = row[colMap.archived]?.trim().toLowerCase() === 'true';
+        
         contactsList.push({
           id: stableContactId, // Stable ID for merging
           lmn_contact_id: contactId, // Original LMN Contact ID for future lookups
@@ -127,6 +130,7 @@ export function parseContactsExport(csvText) {
           primary_contact: primaryContact,
           role: 'user', // Default role, will be enriched from position
           title: '', // Will be enriched from position
+          archived: contactArchived, // Archived status from CSV
           notes: row[colMap.notes]?.trim() || '',
           source: 'lmn_contacts_export',
           created_date: new Date().toISOString(),
@@ -158,3 +162,5 @@ export function parseContactsExport(csvText) {
     };
   }
 }
+
+

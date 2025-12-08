@@ -48,3 +48,5 @@ export default function PaymentMethod({ account, onAddPayment }) {
     </Card>
   );
 }
+
+

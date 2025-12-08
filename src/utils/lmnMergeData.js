@@ -148,3 +148,5 @@ function determineRoleFromPosition(position) {
   // Default
   return 'user';
 }
+
+

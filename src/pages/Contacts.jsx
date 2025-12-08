@@ -17,7 +17,8 @@ import {
   Building2,
   LayoutGrid,
   List,
-  Upload
+  Upload,
+  Archive
 } from 'lucide-react';
 import {
   Select,
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +47,7 @@ export default function Contacts() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'archived'
 
   const queryClient = useQueryClient();
 
@@ -88,8 +91,14 @@ export default function Contacts() {
     });
   };
 
-  // Filter contacts
-  let filteredContacts = contacts.filter(contact => {
+  // Filter by archived status first
+  const contactsByStatus = contacts.filter(contact => {
+    const isArchived = contact.status === 'archived' || contact.archived === true;
+    return activeTab === 'archived' ? isArchived : !isArchived;
+  });
+
+  // Then apply other filters
+  let filteredContacts = contactsByStatus.filter(contact => {
     const matchesSearch = 
       contact.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -132,8 +141,27 @@ export default function Contacts() {
         </div>
       </TutorialTooltip>
 
-      {/* Filters */}
-      <Card className="p-4">
+      {/* Tabs: Active / Archived */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="w-full justify-start bg-white border-b rounded-none h-auto p-0 space-x-0">
+          <TabsTrigger 
+            value="active" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            Active ({contacts.filter(c => c.status !== 'archived' && c.archived !== true).length})
+          </TabsTrigger>
+          <TabsTrigger 
+            value="archived"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Archive className="w-4 h-4 mr-2" />
+            Archived ({contacts.filter(c => c.status === 'archived' || c.archived === true).length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active" className="mt-0 space-y-4">
+          {/* Filters */}
+          <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -177,191 +205,470 @@ export default function Contacts() {
         </div>
       </Card>
 
-      {/* Contacts List View */}
-      {viewMode === 'list' ? (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Account
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Phone
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {filteredContacts.map((contact) => (
-                  <tr 
-                    key={contact.id}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(createPageUrl(`AccountDetail?id=${contact.account_id}`))}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Users className="w-5 h-5 text-slate-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-slate-900">
-                            {contact.first_name} {contact.last_name}
+          {/* Contacts List/Card View for Active Tab */}
+          {viewMode === 'list' ? (
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Account
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Role
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Phone
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {filteredContacts.map((contact) => {
+                      const isArchived = contact.status === 'archived' || contact.archived === true;
+                      return (
+                      <tr 
+                        key={contact.id}
+                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${isArchived ? 'bg-slate-50' : ''}`}
+                        onClick={() => navigate(createPageUrl(`AccountDetail?id=${contact.account_id}`))}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isArchived ? 'bg-slate-200' : 'bg-slate-100'}`}>
+                              <Users className={`w-5 h-5 ${isArchived ? 'text-slate-500' : 'text-slate-600'}`} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${isArchived ? 'text-slate-500' : 'text-slate-900'}`}>
+                                  {contact.first_name} {contact.last_name}
+                                </span>
+                                {isArchived && (
+                                  <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+                                    <Archive className="w-3 h-3 mr-1" />
+                                    Archived
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                        </td>
+                        <td className={`px-4 py-4 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {contact.title || '-'}
+                        </td>
+                        <td className="px-4 py-4">
+                          {contact.account_name ? (
+                            <Link 
+                              to={createPageUrl(`AccountDetail?id=${contact.account_id}`)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-blue-600 hover:text-blue-800'}`}
+                            >
+                              <Building2 className="w-4 h-4" />
+                              {contact.account_name}
+                            </Link>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge variant="outline" className={`${getRoleColor(contact.role)} ${isArchived ? 'opacity-60' : ''}`}>
+                            {contact.role ? contact.role.replace('_', ' ') : 'user'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          <a 
+                            href={`mailto:${contact.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-slate-600 hover:text-blue-600'}`}
+                          >
+                            {contact.email}
+                          </a>
+                        </td>
+                        <td className="px-4 py-4">
+                          {contact.phone ? (
+                            <a 
+                              href={`tel:${contact.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-slate-600 hover:text-blue-600'}`}
+                            >
+                              {contact.phone}
+                            </a>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : (
+            /* Contacts Card View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredContacts.map((contact) => {
+                const isArchived = contact.status === 'archived' || contact.archived === true;
+                return (
+                <Card key={contact.id} className={`hover:shadow-lg transition-shadow ${isArchived ? 'bg-slate-50' : ''}`}>
+                  <CardContent className="p-5">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className={`font-semibold text-lg ${isArchived ? 'text-slate-500' : 'text-slate-900'}`}>
+                            {contact.first_name} {contact.last_name}
+                          </h3>
+                          {isArchived && (
+                            <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+                              <Archive className="w-3 h-3 mr-1" />
+                              Archived
+                            </Badge>
+                          )}
                         </div>
+                        {contact.title && (
+                          <p className={`text-sm mt-1 ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>{contact.title}</p>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-600">
-                      {contact.title || '-'}
-                    </td>
-                    <td className="px-4 py-4">
-                      {contact.account_name ? (
+
+                      {/* Account Link */}
+                      {contact.account_id && (
                         <Link 
                           to={createPageUrl(`AccountDetail?id=${contact.account_id}`)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                          className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-blue-600 hover:text-blue-800'}`}
                         >
                           <Building2 className="w-4 h-4" />
-                          {contact.account_name}
+                          {contact.account_name || 'View Account'}
                         </Link>
-                      ) : (
-                        <span className="text-sm text-slate-400">-</span>
                       )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <Badge variant="outline" className={getRoleColor(contact.role)}>
+
+                      {/* Role Badge */}
+                      <Badge variant="outline" className={`${getRoleColor(contact.role)} ${isArchived ? 'opacity-60' : ''}`}>
                         {contact.role ? contact.role.replace('_', ' ') : 'user'}
                       </Badge>
-                    </td>
-                    <td className="px-4 py-4">
-                      <a 
-                        href={`mailto:${contact.email}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-sm text-slate-600 hover:text-blue-600"
-                      >
-                        {contact.email}
-                      </a>
-                    </td>
-                    <td className="px-4 py-4">
-                      {contact.phone ? (
-                        <a 
-                          href={`tel:${contact.phone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-sm text-slate-600 hover:text-blue-600"
-                        >
-                          {contact.phone}
-                        </a>
-                      ) : (
-                        <span className="text-sm text-slate-400">-</span>
+
+                      {/* Contact Info */}
+                      <div className={`space-y-2 pt-2 border-t ${isArchived ? 'border-slate-200' : 'border-slate-100'}`}>
+                        <div className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                          <Mail className="w-4 h-4 flex-shrink-0" />
+                          <a href={`mailto:${contact.email}`} className={`truncate ${isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}`}>
+                            {contact.email}
+                          </a>
+                        </div>
+                        {contact.phone && (
+                          <div className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                            <Phone className="w-4 h-4 flex-shrink-0" />
+                            <a href={`tel:${contact.phone}`} className={isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}>
+                              {contact.phone}
+                            </a>
+                          </div>
+                        )}
+                        {contact.linkedin_url && (
+                          <div className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                            <Linkedin className="w-4 h-4 flex-shrink-0" />
+                            <a 
+                              href={contact.linkedin_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className={`truncate ${isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}`}
+                            >
+                              LinkedIn
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Preferences */}
+                      {contact.preferences && (
+                        <div className={`pt-3 border-t ${isArchived ? 'border-slate-200' : 'border-slate-100'}`}>
+                          <p className={`text-xs mb-1 ${isArchived ? 'text-slate-400' : 'text-slate-500'}`}>Notes:</p>
+                          <p className={`text-sm line-clamp-2 ${isArchived ? 'text-slate-500' : 'text-slate-700'}`}>{contact.preferences}</p>
+                        </div>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        /* Contacts Card View */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredContacts.map((contact) => (
-          <Card key={contact.id} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-5">
-              <div className="space-y-4">
-                {/* Header */}
-                <div>
-                  <h3 className="font-semibold text-slate-900 text-lg">
-                    {contact.first_name} {contact.last_name}
-                  </h3>
-                  {contact.title && (
-                    <p className="text-sm text-slate-600 mt-1">{contact.title}</p>
-                  )}
-                </div>
-
-                {/* Account Link */}
-                {contact.account_id && (
-                  <Link 
-                    to={createPageUrl(`AccountDetail?id=${contact.account_id}`)}
-                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    <Building2 className="w-4 h-4" />
-                    {contact.account_name || 'View Account'}
-                  </Link>
-                )}
-
-                {/* Role Badge */}
-                <Badge variant="outline" className={getRoleColor(contact.role)}>
-                  {contact.role.replace('_', ' ')}
-                </Badge>
-
-                {/* Contact Info */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Mail className="w-4 h-4 flex-shrink-0" />
-                    <a href={`mailto:${contact.email}`} className="hover:text-blue-600 truncate">
-                      {contact.email}
-                    </a>
-                  </div>
-                  {contact.phone && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Phone className="w-4 h-4 flex-shrink-0" />
-                      <a href={`tel:${contact.phone}`} className="hover:text-blue-600">
-                        {contact.phone}
-                      </a>
                     </div>
-                  )}
-                  {contact.linkedin_url && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Linkedin className="w-4 h-4 flex-shrink-0" />
-                      <a 
-                        href={contact.linkedin_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="hover:text-blue-600 truncate"
-                      >
-                        LinkedIn
-                      </a>
-                    </div>
-                  )}
-                </div>
+                  </CardContent>
+                </Card>
+                );
+              })}
+            </div>
+          )}
 
-                {/* Preferences */}
-                {contact.preferences && (
-                  <div className="pt-3 border-t border-slate-100">
-                    <p className="text-xs text-slate-500 mb-1">Notes:</p>
-                    <p className="text-sm text-slate-700 line-clamp-2">{contact.preferences}</p>
-                  </div>
-                )}
+          {filteredContacts.length === 0 && (
+            <Card className="p-12 text-center">
+              <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No contacts found</h3>
+              <p className="text-slate-600 mb-4">
+                {searchTerm || filterRole !== 'all'
+                  ? 'Try adjusting your filters'
+                  : 'Create your first contact to get started'}
+              </p>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-0 space-y-4">
+          {/* Same filters for archived tab */}
+          <Card className="p-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="Search archived contacts..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </CardContent>
+              <Select value={filterRole} onValueChange={setFilterRole}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="decision_maker">Decision Maker</SelectItem>
+                  <SelectItem value="influencer">Influencer</SelectItem>
+                  <SelectItem value="champion">Champion</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1 border border-slate-300 rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className={`h-8 px-3 ${viewMode === 'list' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'card' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('card')}
+                  className={`h-8 px-3 ${viewMode === 'card' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </Card>
-        ))}
-        </div>
-      )}
 
-      {filteredContacts.length === 0 && (
-        <Card className="p-12 text-center">
-          <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-slate-900 mb-1">No contacts found</h3>
-          <p className="text-slate-600 mb-4">
-            {searchTerm || filterRole !== 'all'
-              ? 'Try adjusting your filters'
-              : 'Create your first contact to get started'}
-          </p>
-        </Card>
-      )}
+          {/* Contacts List/Card View for Archived Tab */}
+          {viewMode === 'list' ? (
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Account
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Role
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Phone
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {filteredContacts.map((contact) => {
+                      const isArchived = contact.status === 'archived' || contact.archived === true;
+                      return (
+                      <tr 
+                        key={contact.id}
+                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${isArchived ? 'bg-slate-50' : ''}`}
+                        onClick={() => navigate(createPageUrl(`AccountDetail?id=${contact.account_id}`))}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isArchived ? 'bg-slate-200' : 'bg-slate-100'}`}>
+                              <Users className={`w-5 h-5 ${isArchived ? 'text-slate-500' : 'text-slate-600'}`} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${isArchived ? 'text-slate-500' : 'text-slate-900'}`}>
+                                  {contact.first_name} {contact.last_name}
+                                </span>
+                                {isArchived && (
+                                  <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+                                    <Archive className="w-3 h-3 mr-1" />
+                                    Archived
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className={`px-4 py-4 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {contact.title || '-'}
+                        </td>
+                        <td className="px-4 py-4">
+                          {contact.account_name ? (
+                            <Link 
+                              to={createPageUrl(`AccountDetail?id=${contact.account_id}`)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-blue-600 hover:text-blue-800'}`}
+                            >
+                              <Building2 className="w-4 h-4" />
+                              {contact.account_name}
+                            </Link>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge variant="outline" className={`${getRoleColor(contact.role)} ${isArchived ? 'opacity-60' : ''}`}>
+                            {contact.role ? contact.role.replace('_', ' ') : 'user'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          <a 
+                            href={`mailto:${contact.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-slate-600 hover:text-blue-600'}`}
+                          >
+                            {contact.email}
+                          </a>
+                        </td>
+                        <td className="px-4 py-4">
+                          {contact.phone ? (
+                            <a 
+                              href={`tel:${contact.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-slate-600 hover:text-blue-600'}`}
+                            >
+                              {contact.phone}
+                            </a>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : (
+            /* Contacts Card View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredContacts.map((contact) => {
+                const isArchived = contact.status === 'archived' || contact.archived === true;
+                return (
+                <Card key={contact.id} className={`hover:shadow-lg transition-shadow ${isArchived ? 'bg-slate-50' : ''}`}>
+                  <CardContent className="p-5">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className={`font-semibold text-lg ${isArchived ? 'text-slate-500' : 'text-slate-900'}`}>
+                            {contact.first_name} {contact.last_name}
+                          </h3>
+                          {isArchived && (
+                            <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+                              <Archive className="w-3 h-3 mr-1" />
+                              Archived
+                            </Badge>
+                          )}
+                        </div>
+                        {contact.title && (
+                          <p className={`text-sm mt-1 ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>{contact.title}</p>
+                        )}
+                      </div>
+
+                      {/* Account Link */}
+                      {contact.account_id && (
+                        <Link 
+                          to={createPageUrl(`AccountDetail?id=${contact.account_id}`)}
+                          className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400 hover:text-slate-600' : 'text-blue-600 hover:text-blue-800'}`}
+                        >
+                          <Building2 className="w-4 h-4" />
+                          {contact.account_name || 'View Account'}
+                        </Link>
+                      )}
+
+                      {/* Role Badge */}
+                      <Badge variant="outline" className={`${getRoleColor(contact.role)} ${isArchived ? 'opacity-60' : ''}`}>
+                        {contact.role ? contact.role.replace('_', ' ') : 'user'}
+                      </Badge>
+
+                      {/* Contact Info */}
+                      <div className={`space-y-2 pt-2 border-t ${isArchived ? 'border-slate-200' : 'border-slate-100'}`}>
+                        <div className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                          <Mail className="w-4 h-4 flex-shrink-0" />
+                          <a href={`mailto:${contact.email}`} className={`truncate ${isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}`}>
+                            {contact.email}
+                          </a>
+                        </div>
+                        {contact.phone && (
+                          <div className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                            <Phone className="w-4 h-4 flex-shrink-0" />
+                            <a href={`tel:${contact.phone}`} className={isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}>
+                              {contact.phone}
+                            </a>
+                          </div>
+                        )}
+                        {contact.linkedin_url && (
+                          <div className={`flex items-center gap-2 text-sm ${isArchived ? 'text-slate-400' : 'text-slate-600'}`}>
+                            <Linkedin className="w-4 h-4 flex-shrink-0" />
+                            <a 
+                              href={contact.linkedin_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className={`truncate ${isArchived ? 'hover:text-slate-600' : 'hover:text-blue-600'}`}
+                            >
+                              LinkedIn
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Preferences */}
+                      {contact.preferences && (
+                        <div className={`pt-3 border-t ${isArchived ? 'border-slate-200' : 'border-slate-100'}`}>
+                          <p className={`text-xs mb-1 ${isArchived ? 'text-slate-400' : 'text-slate-500'}`}>Notes:</p>
+                          <p className={`text-sm line-clamp-2 ${isArchived ? 'text-slate-500' : 'text-slate-700'}`}>{contact.preferences}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {filteredContacts.length === 0 && (
+            <Card className="p-12 text-center">
+              <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No archived contacts found</h3>
+              <p className="text-slate-600 mb-4">
+                {searchTerm || filterRole !== 'all'
+                  ? 'Try adjusting your filters'
+                  : 'No archived contacts'}
+              </p>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Import Leads Dialog */}
       <ImportLeadsDialog 

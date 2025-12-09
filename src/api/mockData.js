@@ -581,6 +581,8 @@ export const mockNotifications = [
 ];
 
 // Mock Estimates for Win/Loss Tracking
+export const mockJobsites = [];
+
 export const mockEstimates = [
   {
     id: '1',

@@ -22,12 +22,14 @@ import {
   mockInteractions,
   mockScorecardTemplates,
   mockScorecardResponses,
-  mockSequences,
-  mockSequenceEnrollments,
-  mockSalesInsights,
-  mockResearchNotes,
-  mockUsers,
-  mockNotifications
+    mockSequences,
+    mockSequenceEnrollments,
+    mockSalesInsights,
+    mockResearchNotes,
+    mockUsers,
+    mockNotifications,
+    mockEstimates,
+    mockJobsites
 } from './mockData';
 
 // Cache for Google Sheets data
@@ -557,6 +559,112 @@ export const base44 = {
           }
         });
         return mockNotifications.filter(n => n.user_id === userId);
+      },
+    },
+    Estimate: {
+      list: async () => mockEstimates,
+      filter: async (filters, sort) => {
+        let results = [...mockEstimates];
+        if (filters && Object.keys(filters).length > 0) {
+          results = results.filter(estimate => {
+            return Object.entries(filters).every(([key, value]) => {
+              return estimate[key] === value;
+            });
+          });
+        }
+        if (sort) {
+          const desc = sort.startsWith('-');
+          const sortField = desc ? sort.substring(1) : sort;
+          results.sort((a, b) => {
+            const aVal = a[sortField];
+            const bVal = b[sortField];
+            if (aVal < bVal) return desc ? 1 : -1;
+            if (aVal > bVal) return desc ? -1 : 1;
+            return 0;
+          });
+        }
+        return results;
+      },
+      create: async (data) => {
+        const newEstimate = { ...data, id: data.id || Date.now().toString() };
+        mockEstimates.push(newEstimate);
+        return newEstimate;
+      },
+      update: async (id, data) => {
+        const index = mockEstimates.findIndex(e => e.id === id);
+        if (index !== -1) {
+          mockEstimates[index] = { ...mockEstimates[index], ...data };
+          return mockEstimates[index];
+        }
+        return data;
+      },
+      upsert: async (data, lookupField = 'lmn_estimate_id') => {
+        const existing = mockEstimates.find(e => 
+          e[lookupField] && data[lookupField] && e[lookupField] === data[lookupField]
+        );
+        
+        if (existing) {
+          const index = mockEstimates.findIndex(e => e.id === existing.id);
+          mockEstimates[index] = { ...existing, ...data, id: existing.id };
+          return { ...mockEstimates[index], _action: 'updated' };
+        } else {
+          const newEstimate = { ...data, id: data.id || Date.now().toString() };
+          mockEstimates.push(newEstimate);
+          return { ...newEstimate, _action: 'created' };
+        }
+      },
+    },
+    Jobsite: {
+      list: async () => mockJobsites,
+      filter: async (filters, sort) => {
+        let results = [...mockJobsites];
+        if (filters && Object.keys(filters).length > 0) {
+          results = results.filter(jobsite => {
+            return Object.entries(filters).every(([key, value]) => {
+              return jobsite[key] === value;
+            });
+          });
+        }
+        if (sort) {
+          const desc = sort.startsWith('-');
+          const sortField = desc ? sort.substring(1) : sort;
+          results.sort((a, b) => {
+            const aVal = a[sortField];
+            const bVal = b[sortField];
+            if (aVal < bVal) return desc ? 1 : -1;
+            if (aVal > bVal) return desc ? -1 : 1;
+            return 0;
+          });
+        }
+        return results;
+      },
+      create: async (data) => {
+        const newJobsite = { ...data, id: data.id || Date.now().toString() };
+        mockJobsites.push(newJobsite);
+        return newJobsite;
+      },
+      update: async (id, data) => {
+        const index = mockJobsites.findIndex(j => j.id === id);
+        if (index !== -1) {
+          mockJobsites[index] = { ...mockJobsites[index], ...data };
+          return mockJobsites[index];
+        }
+        return data;
+      },
+      upsert: async (data, lookupField = 'lmn_jobsite_id') => {
+        const existing = mockJobsites.find(j => 
+          j[lookupField] && data[lookupField] && j[lookupField] === data[lookupField]
+        );
+        
+        if (existing) {
+          const index = mockJobsites.findIndex(j => j.id === existing.id);
+          mockJobsites[index] = { ...existing, ...data, id: existing.id };
+          return { ...mockJobsites[index], _action: 'updated' };
+        } else {
+          const newJobsite = { ...data, id: data.id || Date.now().toString() };
+          mockJobsites.push(newJobsite);
+          return { ...newJobsite, _action: 'created' };
+        }
       },
     },
   },

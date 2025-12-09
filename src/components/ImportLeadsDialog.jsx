@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { parseContactsExport } from '@/utils/lmnContactsExportParser';
 import { parseLeadsList } from '@/utils/lmnLeadsListParser';
+import { parseEstimatesList } from '@/utils/lmnEstimatesListParser';
+import { parseJobsiteExport } from '@/utils/lmnJobsiteExportParser';
 import { mergeContactData } from '@/utils/lmnMergeData';
 import * as XLSX from 'xlsx';
 import {
@@ -37,6 +39,16 @@ export default function ImportLeadsDialog({ open, onClose }) {
   const [leadsFile, setLeadsFile] = useState(null);
   const [leadsData, setLeadsData] = useState(null);
   const [leadsDragging, setLeadsDragging] = useState(false);
+  
+  // File 3: Estimates List
+  const [estimatesFile, setEstimatesFile] = useState(null);
+  const [estimatesData, setEstimatesData] = useState(null);
+  const [estimatesDragging, setEstimatesDragging] = useState(false);
+  
+  // File 4: Jobsite Export
+  const [jobsitesFile, setJobsitesFile] = useState(null);
+  const [jobsitesData, setJobsitesData] = useState(null);
+  const [jobsitesDragging, setJobsitesDragging] = useState(false);
   
   // Merged data and status
   const [mergedData, setMergedData] = useState(null);
@@ -99,10 +111,8 @@ export default function ImportLeadsDialog({ open, onClose }) {
       setContactsData(parsed);
       setContactsFile(file);
       
-      // If both files loaded, merge them
-      if (leadsData) {
-        mergeBothFiles(parsed, leadsData);
-      }
+      // Try to merge all loaded files
+      checkAndMergeAllFiles(parsed, leadsData, estimatesData, jobsitesData);
     } catch (err) {
       setError(`Error reading Contacts Export: ${err.message}`);
     }
@@ -140,19 +150,100 @@ export default function ImportLeadsDialog({ open, onClose }) {
       setLeadsData(parsed);
       setLeadsFile(file);
       
-      // If both files loaded, merge them
-      if (contactsData) {
-        mergeBothFiles(contactsData, parsed);
-      }
+      // Try to merge all loaded files
+      checkAndMergeAllFiles(contactsData, parsed, estimatesData, jobsitesData);
     } catch (err) {
       setError(`Error reading Leads List: ${err.message}`);
     }
   };
 
-  // Merge both CSVs
-  const mergeBothFiles = (contacts, leads) => {
+  // Process Estimates List file (CSV or XLSX)
+  const processEstimatesFile = async (file) => {
+    if (!file) return;
+    
+    const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
     try {
+      let csvText;
+      
+      if (isXlsx) {
+        csvText = await convertXlsxToCsv(file);
+      } else {
+        csvText = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsText(file);
+        });
+      }
+      
+      const parsed = parseEstimatesList(csvText);
+      
+      if (parsed.stats.error) {
+        setError(`Estimates List: ${parsed.stats.error}`);
+        return;
+      }
+      
+      setEstimatesData(parsed);
+      setEstimatesFile(file);
+      
+      // Try to merge all loaded files
+      checkAndMergeAllFiles(contactsData, leadsData, parsed, jobsitesData);
+    } catch (err) {
+      setError(`Error reading Estimates List: ${err.message}`);
+    }
+  };
+
+  // Process Jobsite Export file (CSV or XLSX)
+  const processJobsitesFile = async (file) => {
+    if (!file) return;
+    
+    const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    try {
+      let csvText;
+      
+      if (isXlsx) {
+        csvText = await convertXlsxToCsv(file);
+      } else {
+        csvText = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsText(file);
+        });
+      }
+      
+      const parsed = parseJobsiteExport(csvText);
+      
+      if (parsed.stats.error) {
+        setError(`Jobsite Export: ${parsed.stats.error}`);
+        return;
+      }
+      
+      setJobsitesData(parsed);
+      setJobsitesFile(file);
+      
+      // Try to merge all loaded files
+      checkAndMergeAllFiles(contactsData, leadsData, estimatesData, parsed);
+    } catch (err) {
+      setError(`Error reading Jobsite Export: ${err.message}`);
+    }
+  };
+
+  // Check if all required files are loaded and merge them
+  const checkAndMergeAllFiles = (contacts, leads, estimates, jobsites) => {
+    // Require at least contacts and leads (original requirement)
+    if (!contacts || !leads) return;
+    
+    try {
+      // Merge contacts and leads first
       const merged = mergeContactData(contacts, leads);
+      
+      // Add estimates and jobsites to merged data
+      merged.estimates = estimates?.estimates || [];
+      merged.jobsites = jobsites?.jobsites || [];
+      
       setMergedData(merged);
       setImportStatus('ready');
       setError(null);
@@ -217,6 +308,62 @@ export default function ImportLeadsDialog({ open, onClose }) {
     }
   };
 
+  // Drag and drop handlers for Estimates List
+  const handleEstimatesDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEstimatesDragging(true);
+  };
+
+  const handleEstimatesDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEstimatesDragging(false);
+  };
+
+  const handleEstimatesDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEstimatesDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (!isValidFile) {
+        setError('Please upload a CSV or XLSX file');
+        return;
+      }
+      processEstimatesFile(file);
+    }
+  };
+
+  // Drag and drop handlers for Jobsite Export
+  const handleJobsitesDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJobsitesDragging(true);
+  };
+
+  const handleJobsitesDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJobsitesDragging(false);
+  };
+
+  const handleJobsitesDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJobsitesDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (!isValidFile) {
+        setError('Please upload a CSV or XLSX file');
+        return;
+      }
+      processJobsitesFile(file);
+    }
+  };
+
   // Import merged data with automatic merge/update
   const handleImport = async () => {
     if (!mergedData) return;
@@ -230,8 +377,14 @@ export default function ImportLeadsDialog({ open, onClose }) {
         accountsUpdated: 0,
         contactsCreated: 0,
         contactsUpdated: 0,
+        estimatesCreated: 0,
+        estimatesUpdated: 0,
+        jobsitesCreated: 0,
+        jobsitesUpdated: 0,
         accountsFailed: 0,
         contactsFailed: 0,
+        estimatesFailed: 0,
+        jobsitesFailed: 0,
         errors: []
       };
 
@@ -265,11 +418,47 @@ export default function ImportLeadsDialog({ open, onClose }) {
         }
       }
 
+      // Import/Update estimates using upsert (merge by lmn_estimate_id)
+      if (mergedData.estimates && mergedData.estimates.length > 0) {
+        for (const estimate of mergedData.estimates) {
+          try {
+            const result = await base44.entities.Estimate.upsert(estimate, 'lmn_estimate_id');
+            if (result._action === 'created') {
+              results.estimatesCreated++;
+            } else if (result._action === 'updated') {
+              results.estimatesUpdated++;
+            }
+          } catch (err) {
+            results.estimatesFailed++;
+            results.errors.push(`Estimate "${estimate.estimate_number}": ${err.message}`);
+          }
+        }
+      }
+
+      // Import/Update jobsites using upsert (merge by lmn_jobsite_id)
+      if (mergedData.jobsites && mergedData.jobsites.length > 0) {
+        for (const jobsite of mergedData.jobsites) {
+          try {
+            const result = await base44.entities.Jobsite.upsert(jobsite, 'lmn_jobsite_id');
+            if (result._action === 'created') {
+              results.jobsitesCreated++;
+            } else if (result._action === 'updated') {
+              results.jobsitesUpdated++;
+            }
+          } catch (err) {
+            results.jobsitesFailed++;
+            results.errors.push(`Jobsite "${jobsite.name}": ${err.message}`);
+          }
+        }
+      }
+
       setImportResults(results);
       setImportStatus('success');
 
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['jobsites'] });
 
     } catch (err) {
       setError(`Import failed: ${err.message}`);
@@ -283,6 +472,10 @@ export default function ImportLeadsDialog({ open, onClose }) {
     setContactsData(null);
     setLeadsFile(null);
     setLeadsData(null);
+    setEstimatesFile(null);
+    setEstimatesData(null);
+    setJobsitesFile(null);
+    setJobsitesData(null);
     setMergedData(null);
     setImportStatus('idle');
     setImportResults(null);
@@ -302,7 +495,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
         <DialogHeader>
           <DialogTitle className="text-2xl">Import from LMN</DialogTitle>
           <p className="text-slate-600 text-sm mt-1">
-            Upload both CSV files from LMN to import complete contact data
+            Upload LMN export files to import accounts, contacts, estimates, and jobsites
           </p>
         </DialogHeader>
 
@@ -315,17 +508,19 @@ export default function ImportLeadsDialog({ open, onClose }) {
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-800">
-                    <p className="font-semibold mb-1">Both files are required (CSV or XLSX):</p>
+                    <p className="font-semibold mb-1">Required files (CSV or XLSX):</p>
                     <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li><strong>Contacts Export</strong> - Has CRM IDs, Contact IDs, Tags, Archived status (CSV or XLSX)</li>
-                      <li><strong>Leads List</strong> - Has Position, Do Not Email/Mail/Call preferences (CSV or XLSX)</li>
+                      <li><strong>Contacts Export</strong> - Has CRM IDs, Contact IDs, Tags, Archived status</li>
+                      <li><strong>Leads List</strong> - Has Position, Do Not Email/Mail/Call preferences</li>
+                      <li><strong>Estimates List</strong> - Has Estimate IDs, Dates, Status, Pricing (optional)</li>
+                      <li><strong>Jobsite Export</strong> - Has Jobsite IDs, Addresses, Contact links (optional)</li>
                     </ol>
-                    <p className="mt-2">The system will merge both files to create complete contact records. Both CSV and XLSX formats are supported.</p>
+                    <p className="mt-2">The first two files are required. Estimates and Jobsites are optional but recommended. Both CSV and XLSX formats are supported.</p>
                   </div>
                 </div>
               </Card>
 
-              {/* Two Upload Sections */}
+              {/* Four Upload Sections */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* File 1: Contacts Export */}
                 <div
@@ -490,6 +685,176 @@ export default function ImportLeadsDialog({ open, onClose }) {
                     )}
                   </div>
                 </div>
+
+                {/* File 3: Estimates List */}
+                <div
+                  onDragOver={handleEstimatesDragOver}
+                  onDragLeave={handleEstimatesDragLeave}
+                  onDrop={handleEstimatesDrop}
+                  className={`border-2 border-dashed rounded-lg p-6 transition-all ${
+                    estimatesDragging ? 'border-blue-500 bg-blue-50' : 
+                    estimatesFile ? 'border-emerald-500 bg-emerald-50' : 
+                    'border-slate-300 bg-slate-50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    {estimatesFile ? (
+                      <>
+                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <FileCheck className="w-6 h-6 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-emerald-900">File 3 Uploaded ✓</p>
+                          <p className="text-sm text-emerald-700 mt-1">{estimatesFile.name}</p>
+                          <p className="text-xs text-slate-600 mt-2">
+                            {estimatesData?.stats.total} estimates
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEstimatesFile(null);
+                            setEstimatesData(null);
+                            if (mergedData) {
+                              setMergedData({ ...mergedData, estimates: [] });
+                            }
+                          }}
+                          className="text-slate-600"
+                        >
+                          Remove
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                          <Upload className="w-6 h-6 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900">File 3: Estimates List</p>
+                          <p className="text-xs text-slate-500">(Optional)</p>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Drag & drop or click to upload
+                          </p>
+                        </div>
+                        <input
+                          type="file"
+                          accept=".csv,.xlsx,.xls,text/csv,application/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+                              if (!isValidFile) {
+                                setError('Please upload a CSV or XLSX file');
+                                return;
+                              }
+                              processEstimatesFile(file);
+                            }
+                          }}
+                          className="hidden"
+                          id="estimates-file-input"
+                        />
+                        <Button asChild size="sm" variant="outline">
+                          <label htmlFor="estimates-file-input" className="cursor-pointer">
+                            <FileText className="w-3 h-3 mr-1" />
+                            Choose File
+                          </label>
+                        </Button>
+                        <p className="text-xs text-slate-500 mt-2">
+                          CSV or XLSX format
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Has: Estimate ID, Date, Status, Pricing
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* File 4: Jobsite Export */}
+                <div
+                  onDragOver={handleJobsitesDragOver}
+                  onDragLeave={handleJobsitesDragLeave}
+                  onDrop={handleJobsitesDrop}
+                  className={`border-2 border-dashed rounded-lg p-6 transition-all ${
+                    jobsitesDragging ? 'border-blue-500 bg-blue-50' : 
+                    jobsitesFile ? 'border-emerald-500 bg-emerald-50' : 
+                    'border-slate-300 bg-slate-50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    {jobsitesFile ? (
+                      <>
+                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <FileCheck className="w-6 h-6 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-emerald-900">File 4 Uploaded ✓</p>
+                          <p className="text-sm text-emerald-700 mt-1">{jobsitesFile.name}</p>
+                          <p className="text-xs text-slate-600 mt-2">
+                            {jobsitesData?.stats.total} jobsites
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setJobsitesFile(null);
+                            setJobsitesData(null);
+                            if (mergedData) {
+                              setMergedData({ ...mergedData, jobsites: [] });
+                            }
+                          }}
+                          className="text-slate-600"
+                        >
+                          Remove
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center">
+                          <Upload className="w-6 h-6 text-teal-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900">File 4: Jobsite Export</p>
+                          <p className="text-xs text-slate-500">(Optional)</p>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Drag & drop or click to upload
+                          </p>
+                        </div>
+                        <input
+                          type="file"
+                          accept=".csv,.xlsx,.xls,text/csv,application/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const isValidFile = file.name.endsWith('.csv') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+                              if (!isValidFile) {
+                                setError('Please upload a CSV or XLSX file');
+                                return;
+                              }
+                              processJobsitesFile(file);
+                            }
+                          }}
+                          className="hidden"
+                          id="jobsites-file-input"
+                        />
+                        <Button asChild size="sm" variant="outline">
+                          <label htmlFor="jobsites-file-input" className="cursor-pointer">
+                            <FileText className="w-3 h-3 mr-1" />
+                            Choose File
+                          </label>
+                        </Button>
+                        <p className="text-xs text-slate-500 mt-2">
+                          CSV or XLSX format
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Has: Jobsite ID, Address, Contact links
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Merge Status */}
@@ -502,12 +867,14 @@ export default function ImportLeadsDialog({ open, onClose }) {
                         <p className="font-semibold text-emerald-900">Files Merged Successfully!</p>
                         <p className="text-sm text-emerald-800 mt-1">
                           Ready to import {mergedData.stats.totalAccounts} accounts and {mergedData.stats.totalContacts} contacts
+                          {mergedData.estimates && mergedData.estimates.length > 0 && `, ${mergedData.estimates.length} estimates`}
+                          {mergedData.jobsites && mergedData.jobsites.length > 0 && `, ${mergedData.jobsites.length} jobsites`}
                         </p>
                       </div>
                     </div>
 
                     {/* Merge Stats */}
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="bg-white p-3 rounded border border-emerald-200">
                         <p className="text-2xl font-bold text-slate-900">{mergedData.stats.totalAccounts}</p>
                         <p className="text-xs text-slate-600 mt-1">Accounts</p>
@@ -516,10 +883,25 @@ export default function ImportLeadsDialog({ open, onClose }) {
                         <p className="text-2xl font-bold text-slate-900">{mergedData.stats.totalContacts}</p>
                         <p className="text-xs text-slate-600 mt-1">Contacts</p>
                       </div>
-                      <div className="bg-white p-3 rounded border border-emerald-200">
-                        <p className="text-2xl font-bold text-emerald-600">{mergedData.stats.matchRate}%</p>
-                        <p className="text-xs text-slate-600 mt-1">Match Rate</p>
-                      </div>
+                      {mergedData.estimates && mergedData.estimates.length > 0 && (
+                        <div className="bg-white p-3 rounded border border-amber-200">
+                          <p className="text-2xl font-bold text-amber-600">{mergedData.estimates.length}</p>
+                          <p className="text-xs text-slate-600 mt-1">Estimates</p>
+                        </div>
+                      )}
+                      {mergedData.jobsites && mergedData.jobsites.length > 0 && (
+                        <div className="bg-white p-3 rounded border border-teal-200">
+                          <p className="text-2xl font-bold text-teal-600">{mergedData.jobsites.length}</p>
+                          <p className="text-xs text-slate-600 mt-1">Jobsites</p>
+                        </div>
+                      )}
+                      {(!mergedData.estimates || mergedData.estimates.length === 0) && 
+                       (!mergedData.jobsites || mergedData.jobsites.length === 0) && (
+                        <div className="bg-white p-3 rounded border border-emerald-200">
+                          <p className="text-2xl font-bold text-emerald-600">{mergedData.stats.matchRate}%</p>
+                          <p className="text-xs text-slate-600 mt-1">Match Rate</p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-xs text-emerald-800">
@@ -594,7 +976,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+              <div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
                 <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                   <p className="text-2xl font-bold text-emerald-600">{importResults.accountsCreated}</p>
                   <p className="text-xs text-slate-600 mt-1">Accounts Created</p>
@@ -609,13 +991,35 @@ export default function ImportLeadsDialog({ open, onClose }) {
                     <p className="text-xs text-blue-600 mt-1">+{importResults.contactsUpdated} Updated</p>
                   )}
                 </div>
+                {(importResults.estimatesCreated > 0 || importResults.estimatesUpdated > 0) && (
+                  <div className="text-center p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-2xl font-bold text-amber-600">{importResults.estimatesCreated}</p>
+                    <p className="text-xs text-slate-600 mt-1">Estimates Created</p>
+                    {importResults.estimatesUpdated > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">+{importResults.estimatesUpdated} Updated</p>
+                    )}
+                  </div>
+                )}
+                {(importResults.jobsitesCreated > 0 || importResults.jobsitesUpdated > 0) && (
+                  <div className="text-center p-3 bg-teal-50 rounded-lg border border-teal-200">
+                    <p className="text-2xl font-bold text-teal-600">{importResults.jobsitesCreated}</p>
+                    <p className="text-xs text-slate-600 mt-1">Jobsites Created</p>
+                    {importResults.jobsitesUpdated > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">+{importResults.jobsitesUpdated} Updated</p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {(importResults.accountsFailed > 0 || importResults.contactsFailed > 0) && (
+              {(importResults.accountsFailed > 0 || importResults.contactsFailed > 0 || importResults.estimatesFailed > 0 || importResults.jobsitesFailed > 0) && (
                 <Card className="p-3 bg-amber-50 border-amber-200 w-full max-w-sm">
                   <p className="text-sm text-amber-800">
-                    {importResults.accountsFailed > 0 && `${importResults.accountsFailed} accounts failed`}
-                    {importResults.contactsFailed > 0 && `, ${importResults.contactsFailed} contacts failed`}
+                    {[
+                      importResults.accountsFailed > 0 && `${importResults.accountsFailed} accounts failed`,
+                      importResults.contactsFailed > 0 && `${importResults.contactsFailed} contacts failed`,
+                      importResults.estimatesFailed > 0 && `${importResults.estimatesFailed} estimates failed`,
+                      importResults.jobsitesFailed > 0 && `${importResults.jobsitesFailed} jobsites failed`
+                    ].filter(Boolean).join(', ')}
                   </p>
                 </Card>
               )}

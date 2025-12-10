@@ -14,24 +14,6 @@
 // Import Google Sheets service
 import { getSheetData } from '../services/googleSheetsService';
 
-// For preview: Import mock data as fallback
-import { 
-  mockAccounts, 
-  mockContacts, 
-  mockTasks, 
-  mockInteractions,
-  mockScorecardTemplates,
-  mockScorecardResponses,
-    mockSequences,
-    mockSequenceEnrollments,
-    mockSalesInsights,
-    mockResearchNotes,
-    mockUsers,
-    mockNotifications,
-    mockEstimates,
-    mockJobsites
-} from './mockData';
-
 // Cache for Google Sheets data
 let sheetDataCache = null;
 let isLoadingSheetData = false;
@@ -54,7 +36,7 @@ async function loadSheetData() {
   try {
     sheetDataCache = await getSheetData();
   } catch (error) {
-    console.error('Error loading Google Sheet data, using mock data:', error);
+    console.error('Error loading Google Sheet data:', error);
     sheetDataCache = null;
   } finally {
     isLoadingSheetData = false;
@@ -63,7 +45,7 @@ async function loadSheetData() {
   return sheetDataCache;
 }
 
-// Helper to get data - tries Google Sheets first, falls back to mock
+// Helper to get data - uses Google Sheets only, returns empty array if not available
 async function getData(entityType) {
   try {
     const sheetData = await loadSheetData();
@@ -73,28 +55,11 @@ async function getData(entityType) {
       return sheetData[entityType];
     }
   } catch (error) {
-    console.warn(`Error loading ${entityType} from Google Sheet, using mock data:`, error);
+    console.warn(`Error loading ${entityType} from Google Sheet:`, error);
   }
   
-  // Fallback to mock data
-  const mockMap = {
-    'scorecards': mockScorecardResponses,
-    'contacts': mockContacts,
-    'insights': mockSalesInsights,
-    'notes': mockResearchNotes,
-    'accounts': mockAccounts,
-    'tasks': mockTasks,
-    'interactions': mockInteractions,
-    'templates': mockScorecardTemplates,
-    'sequences': mockSequences,
-    'enrollments': mockSequenceEnrollments,
-    'sequenceEnrollments': mockSequenceEnrollments,
-    'notifications': mockNotifications,
-    'users': mockUsers,
-    'lookupValues': []
-  };
-  
-  return mockMap[entityType] || [];
+  // Return empty array if no data available
+  return [];
 }
 
 // Placeholder - replace with actual base44 SDK initialization
@@ -119,34 +84,29 @@ export const base44 = {
         return results;
       },
       create: async (data) => {
+        // In staging, we don't persist to mock data - return the data as if created
         const newAccount = { ...data, id: data.id || Date.now().toString() };
-        mockAccounts.push(newAccount);
         return newAccount;
       },
       update: async (id, data) => {
-        const index = mockAccounts.findIndex(a => a.id === id);
-        if (index !== -1) {
-          mockAccounts[index] = { ...mockAccounts[index], ...data };
-          return mockAccounts[index];
-        }
-        return data;
+        // In staging, we don't persist to mock data - return the data as if updated
+        return { ...data, id };
       },
       // Upsert: Create if doesn't exist, update if it does
       upsert: async (data, lookupField = 'lmn_crm_id') => {
-        // Find existing by lookup field
-        const existing = mockAccounts.find(a => 
+        // In staging, check Google Sheets data for existing record
+        const sheetData = await loadSheetData();
+        const accounts = sheetData?.accounts || [];
+        const existing = accounts.find(a => 
           a[lookupField] && data[lookupField] && a[lookupField] === data[lookupField]
         );
         
         if (existing) {
-          // Update existing
-          const index = mockAccounts.findIndex(a => a.id === existing.id);
-          mockAccounts[index] = { ...existing, ...data, id: existing.id };
-          return { ...mockAccounts[index], _action: 'updated' };
+          // Return as if updated
+          return { ...existing, ...data, id: existing.id, _action: 'updated' };
         } else {
-          // Create new
+          // Return as if created
           const newAccount = { ...data, id: data.id || Date.now().toString() };
-          mockAccounts.push(newAccount);
           return { ...newAccount, _action: 'created' };
         }
       },
@@ -169,42 +129,41 @@ export const base44 = {
         return results;
       },
       create: async (data) => {
+        // In staging, we don't persist to mock data - return the data as if created
         const newContact = { ...data, id: data.id || Date.now().toString() };
-        mockContacts.push(newContact);
         return newContact;
       },
       update: async (id, data) => {
-        const index = mockContacts.findIndex(c => c.id === id);
-        if (index !== -1) {
-          mockContacts[index] = { ...mockContacts[index], ...data };
-          return mockContacts[index];
-        }
-        return data;
+        // In staging, we don't persist to mock data - return the data as if updated
+        return { ...data, id };
       },
       // Upsert: Create if doesn't exist, update if it does
       upsert: async (data, lookupField = 'lmn_contact_id') => {
-        // Find existing by lookup field
-        const existing = mockContacts.find(c => 
+        // In staging, check Google Sheets data for existing record
+        const sheetData = await loadSheetData();
+        const contacts = sheetData?.contacts || [];
+        const existing = contacts.find(c => 
           c[lookupField] && data[lookupField] && c[lookupField] === data[lookupField]
         );
         
         if (existing) {
-          // Update existing
-          const index = mockContacts.findIndex(c => c.id === existing.id);
-          mockContacts[index] = { ...existing, ...data, id: existing.id };
-          return { ...mockContacts[index], _action: 'updated' };
+          // Return as if updated
+          return { ...existing, ...data, id: existing.id, _action: 'updated' };
         } else {
-          // Create new
+          // Return as if created
           const newContact = { ...data, id: data.id || Date.now().toString() };
-          mockContacts.push(newContact);
           return { ...newContact, _action: 'created' };
         }
       },
     },
     Interaction: {
-      list: async () => mockInteractions,
+      list: async () => {
+        const data = await getData('interactions');
+        return Array.isArray(data) ? data : [];
+      },
       filter: async (filters, sort) => {
-        let results = [...mockInteractions];
+        const data = await getData('interactions');
+        let results = Array.isArray(data) ? [...data] : [];
         if (filters && Object.keys(filters).length > 0) {
           results = results.filter(interaction => {
             return Object.entries(filters).every(([key, value]) => {
@@ -227,14 +186,15 @@ export const base44 = {
         return results;
       },
       create: async (data) => {
+        // In staging, we don't persist to mock data - return the data as if created
         const newInteraction = { ...data, id: Date.now().toString() };
-        mockInteractions.push(newInteraction);
         return newInteraction;
       },
     },
     Task: {
       list: async (sort) => {
-        let results = [...mockTasks];
+        const data = await getData('tasks');
+        let results = Array.isArray(data) ? [...data] : [];
         if (sort) {
           const desc = sort.startsWith('-');
           const sortField = desc ? sort.substring(1) : sort;
@@ -249,7 +209,8 @@ export const base44 = {
         return results;
       },
       filter: async (filters) => {
-        let results = [...mockTasks];
+        const data = await getData('tasks');
+        let results = Array.isArray(data) ? [...data] : [];
         if (filters && Object.keys(filters).length > 0) {
           results = results.filter(task => {
             return Object.entries(filters).every(([key, value]) => {
@@ -260,17 +221,13 @@ export const base44 = {
         return results;
       },
       create: async (data) => {
+        // In staging, we don't persist to mock data - return the data as if created
         const newTask = { ...data, id: Date.now().toString() };
-        mockTasks.push(newTask);
         return newTask;
       },
       update: async (id, data) => {
-        const index = mockTasks.findIndex(t => t.id === id);
-        if (index !== -1) {
-          mockTasks[index] = { ...mockTasks[index], ...data };
-          return mockTasks[index];
-        }
-        return data;
+        // In staging, we don't persist to mock data - return the data as if updated
+        return { ...data, id };
       },
     },
     Sequence: {
@@ -562,9 +519,13 @@ export const base44 = {
       },
     },
     Estimate: {
-      list: async () => mockEstimates,
+      list: async () => {
+        const sheetData = await loadSheetData();
+        return sheetData?.estimates || [];
+      },
       filter: async (filters, sort) => {
-        let results = [...mockEstimates];
+        const sheetData = await loadSheetData();
+        let results = [...(sheetData?.estimates || [])];
         if (filters && Object.keys(filters).length > 0) {
           results = results.filter(estimate => {
             return Object.entries(filters).every(([key, value]) => {
@@ -586,38 +547,28 @@ export const base44 = {
         return results;
       },
       create: async (data) => {
+        // In staging, we don't persist to mock data - return the data as if created
         const newEstimate = { ...data, id: data.id || Date.now().toString() };
-        mockEstimates.push(newEstimate);
         return newEstimate;
       },
       update: async (id, data) => {
-        const index = mockEstimates.findIndex(e => e.id === id);
-        if (index !== -1) {
-          mockEstimates[index] = { ...mockEstimates[index], ...data };
-          return mockEstimates[index];
-        }
-        return data;
+        // In staging, we don't persist to mock data - return the data as if updated
+        return { ...data, id };
       },
       upsert: async (data, lookupField = 'lmn_estimate_id') => {
-        const existing = mockEstimates.find(e => 
-          e[lookupField] && data[lookupField] && e[lookupField] === data[lookupField]
-        );
-        
-        if (existing) {
-          const index = mockEstimates.findIndex(e => e.id === existing.id);
-          mockEstimates[index] = { ...existing, ...data, id: existing.id };
-          return { ...mockEstimates[index], _action: 'updated' };
-        } else {
-          const newEstimate = { ...data, id: data.id || Date.now().toString() };
-          mockEstimates.push(newEstimate);
-          return { ...newEstimate, _action: 'created' };
-        }
+        // In staging, we don't persist to mock data - return the data as if created/updated
+        const newEstimate = { ...data, id: data.id || Date.now().toString() };
+        return { ...newEstimate, _action: 'created' };
       },
     },
     Jobsite: {
-      list: async () => mockJobsites,
+      list: async () => {
+        const sheetData = await loadSheetData();
+        return sheetData?.jobsites || [];
+      },
       filter: async (filters, sort) => {
-        let results = [...mockJobsites];
+        const sheetData = await loadSheetData();
+        let results = [...(sheetData?.jobsites || [])];
         if (filters && Object.keys(filters).length > 0) {
           results = results.filter(jobsite => {
             return Object.entries(filters).every(([key, value]) => {
@@ -639,32 +590,18 @@ export const base44 = {
         return results;
       },
       create: async (data) => {
+        // In staging, we don't persist to mock data - return the data as if created
         const newJobsite = { ...data, id: data.id || Date.now().toString() };
-        mockJobsites.push(newJobsite);
         return newJobsite;
       },
       update: async (id, data) => {
-        const index = mockJobsites.findIndex(j => j.id === id);
-        if (index !== -1) {
-          mockJobsites[index] = { ...mockJobsites[index], ...data };
-          return mockJobsites[index];
-        }
-        return data;
+        // In staging, we don't persist to mock data - return the data as if updated
+        return { ...data, id };
       },
       upsert: async (data, lookupField = 'lmn_jobsite_id') => {
-        const existing = mockJobsites.find(j => 
-          j[lookupField] && data[lookupField] && j[lookupField] === data[lookupField]
-        );
-        
-        if (existing) {
-          const index = mockJobsites.findIndex(j => j.id === existing.id);
-          mockJobsites[index] = { ...existing, ...data, id: existing.id };
-          return { ...mockJobsites[index], _action: 'updated' };
-        } else {
-          const newJobsite = { ...data, id: data.id || Date.now().toString() };
-          mockJobsites.push(newJobsite);
-          return { ...newJobsite, _action: 'created' };
-        }
+        // In staging, we don't persist to mock data - return the data as if created/updated
+        const newJobsite = { ...data, id: data.id || Date.now().toString() };
+        return { ...newJobsite, _action: 'created' };
       },
     },
   },

@@ -33,7 +33,7 @@ export default function KeyDates({ account }) {
                    `${lastContactDays} days ago`}
                 </>
               ) : (
-                <span className="text-slate-400">Never contacted</span>
+                <span className="text-slate-400">No contact records</span>
               )}
             </p>
           </div>
@@ -54,5 +54,6 @@ export default function KeyDates({ account }) {
     </Card>
   );
 }
+
 
 

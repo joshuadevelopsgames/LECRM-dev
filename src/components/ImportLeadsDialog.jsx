@@ -233,16 +233,12 @@ export default function ImportLeadsDialog({ open, onClose }) {
 
   // Check if all required files are loaded and merge them
   const checkAndMergeAllFiles = (contacts, leads, estimates, jobsites) => {
-    // Require at least contacts and leads (original requirement)
-    if (!contacts || !leads) return;
+    // Require all 4 files: contacts, leads, estimates, and jobsites
+    if (!contacts || !leads || !estimates || !jobsites) return;
     
     try {
       // Merge contacts and leads first
-      const merged = mergeContactData(contacts, leads);
-      
-      // Add estimates and jobsites to merged data
-      merged.estimates = estimates?.estimates || [];
-      merged.jobsites = jobsites?.jobsites || [];
+      const merged = mergeContactData(contacts, leads, estimates, jobsites);
       
       setMergedData(merged);
       setImportStatus('ready');
@@ -487,7 +483,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
     onClose();
   };
 
-  const bothFilesUploaded = contactsFile && leadsFile;
+  const allFilesUploaded = contactsFile && leadsFile && estimatesFile && jobsitesFile;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -512,10 +508,10 @@ export default function ImportLeadsDialog({ open, onClose }) {
                     <ol className="list-decimal list-inside space-y-1 ml-2">
                       <li><strong>Contacts Export</strong> - Has CRM IDs, Contact IDs, Tags, Archived status</li>
                       <li><strong>Leads List</strong> - Has Position, Do Not Email/Mail/Call preferences</li>
-                      <li><strong>Estimates List</strong> - Has Estimate IDs, Dates, Status, Pricing (optional)</li>
-                      <li><strong>Jobsite Export</strong> - Has Jobsite IDs, Addresses, Contact links (optional)</li>
+                      <li><strong>Estimates List</strong> - Has Estimate IDs, Dates, Status, Pricing (required)</li>
+                      <li><strong>Jobsite Export</strong> - Has Jobsite IDs, Addresses, Contact links (required)</li>
                     </ol>
-                    <p className="mt-2">The first two files are required. Estimates and Jobsites are optional but recommended. Both CSV and XLSX formats are supported.</p>
+                    <p className="mt-2">All four files are required. Estimates and Jobsites are needed to calculate revenue and account scores. Both CSV and XLSX formats are supported.</p>
                   </div>
                 </div>
               </Card>
@@ -716,9 +712,8 @@ export default function ImportLeadsDialog({ open, onClose }) {
                           onClick={() => {
                             setEstimatesFile(null);
                             setEstimatesData(null);
-                            if (mergedData) {
-                              setMergedData({ ...mergedData, estimates: [] });
-                            }
+                            setMergedData(null);
+                            setImportStatus('idle');
                           }}
                           className="text-slate-600"
                         >
@@ -732,7 +727,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
                         </div>
                         <div>
                           <p className="font-semibold text-slate-900">File 3: Estimates List</p>
-                          <p className="text-xs text-slate-500">(Optional)</p>
+                          <p className="text-xs text-red-600 font-semibold">(Required)</p>
                           <p className="text-xs text-slate-600 mt-1">
                             Drag & drop or click to upload
                           </p>
@@ -801,9 +796,8 @@ export default function ImportLeadsDialog({ open, onClose }) {
                           onClick={() => {
                             setJobsitesFile(null);
                             setJobsitesData(null);
-                            if (mergedData) {
-                              setMergedData({ ...mergedData, jobsites: [] });
-                            }
+                            setMergedData(null);
+                            setImportStatus('idle');
                           }}
                           className="text-slate-600"
                         >
@@ -817,7 +811,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
                         </div>
                         <div>
                           <p className="font-semibold text-slate-900">File 4: Jobsite Export</p>
-                          <p className="text-xs text-slate-500">(Optional)</p>
+                          <p className="text-xs text-red-600 font-semibold">(Required)</p>
                           <p className="text-xs text-slate-600 mt-1">
                             Drag & drop or click to upload
                           </p>
@@ -858,7 +852,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
               </div>
 
               {/* Merge Status */}
-              {bothFilesUploaded && mergedData && (
+              {allFilesUploaded && mergedData && (
                 <Card className="p-6 border-emerald-200 bg-emerald-50">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
@@ -917,7 +911,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
               )}
 
               {/* Action Buttons */}
-              {bothFilesUploaded && (
+              {allFilesUploaded && (
                 <div className="flex gap-3 justify-end">
                   <Button variant="outline" onClick={handleReset}>
                     Start Over
@@ -1034,5 +1028,6 @@ export default function ImportLeadsDialog({ open, onClose }) {
     </Dialog>
   );
 }
+
 
 

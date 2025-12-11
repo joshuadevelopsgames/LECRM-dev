@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   LogOut,
-  HelpCircle
+  HelpCircle,
+  ClipboardList
 } from 'lucide-react';
 
 import { base44 } from '@/api/base44Client';
@@ -36,6 +37,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Tasks', path: 'Tasks', icon: CheckSquare },
     { name: 'Sequences', path: 'Sequences', icon: GitBranch },
     { name: 'Scoring', path: 'Scoring', icon: Award },
+    { name: 'Task Tracker', path: 'TaskTracker', icon: ClipboardList, isDev: true },
   ];
 
   const handleLogout = () => {
@@ -125,12 +127,15 @@ export default function Layout({ children, currentPageName }) {
                 return (
                   <Link
                     key={item.name}
-                    to={createPageUrl(item.path)}
+                    to={item.path === 'TaskTracker' ? '/task-tracker' : createPageUrl(item.path)}
                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
                       isActive
                         ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-md'
+                        : item.isDev
+                        ? 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 hover:shadow-sm border border-slate-200'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:shadow-sm'
                     }`}
+                    title={item.isDev ? 'Development Tool' : ''}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-white' : ''}`} />
                     {item.name}
@@ -214,11 +219,13 @@ export default function Layout({ children, currentPageName }) {
                 return (
                   <Link
                     key={item.name}
-                    to={createPageUrl(item.path)}
+                    to={item.path === 'TaskTracker' ? '/task-tracker' : createPageUrl(item.path)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                       isActive
                         ? 'bg-slate-900 text-white'
+                        : item.isDev
+                        ? 'text-slate-500 hover:bg-slate-100 border border-slate-200'
                         : 'text-slate-600 hover:bg-slate-100'
                     }`}
                     style={(isPWA || isNativeApp) ? {

@@ -61,6 +61,12 @@ export default function ImportLeadsDialog({ open, onClose }) {
   const [importStatus, setImportStatus] = useState('idle');
   const [importResults, setImportResults] = useState(null);
   const [error, setError] = useState(null);
+  const [importProgress, setImportProgress] = useState({
+    currentStep: '',
+    progress: 0,
+    totalSteps: 0,
+    completedSteps: 0
+  });
   
   const queryClient = useQueryClient();
 
@@ -372,6 +378,20 @@ export default function ImportLeadsDialog({ open, onClose }) {
 
     setImportStatus('importing');
     setError(null);
+    
+    // Calculate total steps for progress tracking
+    const totalSteps = 
+      (mergedData.accounts?.length > 0 ? 1 : 0) +
+      (mergedData.contacts?.length > 0 ? Math.ceil(mergedData.contacts.length / 500) : 0) +
+      (mergedData.estimates?.length > 0 ? Math.ceil(mergedData.estimates.length / 500) : 0) +
+      (mergedData.jobsites?.length > 0 ? Math.ceil(mergedData.jobsites.length / 500) : 0);
+    
+    setImportProgress({
+      currentStep: 'Starting import...',
+      progress: 0,
+      totalSteps: totalSteps,
+      completedSteps: 0
+    });
 
     try {
       const results = {
@@ -475,6 +495,13 @@ export default function ImportLeadsDialog({ open, onClose }) {
           
           // Write accounts
           if (mergedData.accounts && mergedData.accounts.length > 0) {
+            setImportProgress(prev => ({
+              ...prev,
+              currentStep: `Writing ${mergedData.accounts.length} accounts...`,
+              completedSteps: prev.completedSteps,
+              progress: (prev.completedSteps / prev.totalSteps) * 100
+            }));
+            
             const accountsResult = await writeAccountsToSheet(mergedData.accounts);
             if (!accountsResult.success) {
               console.error('❌ Failed to write accounts to Google Sheet:', accountsResult.error);
@@ -482,30 +509,52 @@ export default function ImportLeadsDialog({ open, onClose }) {
             } else {
               console.log(`✅ Wrote ${accountsResult.result?.total || 0} accounts to Google Sheets`);
             }
+            
+            setImportProgress(prev => ({
+              ...prev,
+              completedSteps: prev.completedSteps + 1,
+              progress: ((prev.completedSteps + 1) / prev.totalSteps) * 100
+            }));
           }
 
           // Write contacts (split into batches to avoid timeout)
           if (mergedData.contacts && mergedData.contacts.length > 0) {
             console.log(`📝 Writing ${mergedData.contacts.length} contacts in batches...`);
             const BATCH_SIZE = 500; // Process 500 contacts at a time
+            const totalBatches = Math.ceil(mergedData.contacts.length / BATCH_SIZE);
             let totalCreated = 0;
             let totalUpdated = 0;
             let hasError = false;
             
             for (let i = 0; i < mergedData.contacts.length; i += BATCH_SIZE) {
               const batch = mergedData.contacts.slice(i, i + BATCH_SIZE);
-              console.log(`📝 Writing contacts batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(mergedData.contacts.length / BATCH_SIZE)} (${batch.length} contacts)...`);
+              const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+              
+              setImportProgress(prev => ({
+                ...prev,
+                currentStep: `Writing contacts batch ${batchNum}/${totalBatches} (${batch.length} contacts)...`,
+                completedSteps: prev.completedSteps,
+                progress: (prev.completedSteps / prev.totalSteps) * 100
+              }));
+              
+              console.log(`📝 Writing contacts batch ${batchNum}/${totalBatches} (${batch.length} contacts)...`);
               
               const contactsResult = await writeContactsToSheet(batch);
               if (!contactsResult.success) {
-                console.error(`❌ Failed to write contacts batch ${Math.floor(i / BATCH_SIZE) + 1}:`, contactsResult.error);
-                results.errors.push(`Google Sheets: Failed to write contacts batch ${Math.floor(i / BATCH_SIZE) + 1} - ${contactsResult.error}`);
+                console.error(`❌ Failed to write contacts batch ${batchNum}:`, contactsResult.error);
+                results.errors.push(`Google Sheets: Failed to write contacts batch ${batchNum} - ${contactsResult.error}`);
                 hasError = true;
               } else {
                 totalCreated += contactsResult.result?.created || 0;
                 totalUpdated += contactsResult.result?.updated || 0;
-                console.log(`✅ Wrote contacts batch ${Math.floor(i / BATCH_SIZE) + 1} (${contactsResult.result?.total || 0} contacts)`);
+                console.log(`✅ Wrote contacts batch ${batchNum} (${contactsResult.result?.total || 0} contacts)`);
               }
+              
+              setImportProgress(prev => ({
+                ...prev,
+                completedSteps: prev.completedSteps + 1,
+                progress: ((prev.completedSteps + 1) / prev.totalSteps) * 100
+              }));
             }
             
             if (!hasError) {
@@ -517,24 +566,40 @@ export default function ImportLeadsDialog({ open, onClose }) {
           if (mergedData.estimates && mergedData.estimates.length > 0) {
             console.log(`📝 Writing ${mergedData.estimates.length} estimates in batches...`);
             const BATCH_SIZE = 500;
+            const totalBatches = Math.ceil(mergedData.estimates.length / BATCH_SIZE);
             let totalCreated = 0;
             let totalUpdated = 0;
             let hasError = false;
             
             for (let i = 0; i < mergedData.estimates.length; i += BATCH_SIZE) {
               const batch = mergedData.estimates.slice(i, i + BATCH_SIZE);
-              console.log(`📝 Writing estimates batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(mergedData.estimates.length / BATCH_SIZE)} (${batch.length} estimates)...`);
+              const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+              
+              setImportProgress(prev => ({
+                ...prev,
+                currentStep: `Writing estimates batch ${batchNum}/${totalBatches} (${batch.length} estimates)...`,
+                completedSteps: prev.completedSteps,
+                progress: (prev.completedSteps / prev.totalSteps) * 100
+              }));
+              
+              console.log(`📝 Writing estimates batch ${batchNum}/${totalBatches} (${batch.length} estimates)...`);
               
               const estimatesResult = await writeEstimatesToSheet(batch);
               if (!estimatesResult.success) {
-                console.error(`❌ Failed to write estimates batch ${Math.floor(i / BATCH_SIZE) + 1}:`, estimatesResult.error);
-                results.errors.push(`Google Sheets: Failed to write estimates batch ${Math.floor(i / BATCH_SIZE) + 1} - ${estimatesResult.error}`);
+                console.error(`❌ Failed to write estimates batch ${batchNum}:`, estimatesResult.error);
+                results.errors.push(`Google Sheets: Failed to write estimates batch ${batchNum} - ${estimatesResult.error}`);
                 hasError = true;
               } else {
                 totalCreated += estimatesResult.result?.created || 0;
                 totalUpdated += estimatesResult.result?.updated || 0;
-                console.log(`✅ Wrote estimates batch ${Math.floor(i / BATCH_SIZE) + 1} (${estimatesResult.result?.total || 0} estimates)`);
+                console.log(`✅ Wrote estimates batch ${batchNum} (${estimatesResult.result?.total || 0} estimates)`);
               }
+              
+              setImportProgress(prev => ({
+                ...prev,
+                completedSteps: prev.completedSteps + 1,
+                progress: ((prev.completedSteps + 1) / prev.totalSteps) * 100
+              }));
             }
             
             if (!hasError) {
@@ -546,24 +611,40 @@ export default function ImportLeadsDialog({ open, onClose }) {
           if (mergedData.jobsites && mergedData.jobsites.length > 0) {
             console.log(`📝 Writing ${mergedData.jobsites.length} jobsites in batches...`);
             const BATCH_SIZE = 500;
+            const totalBatches = Math.ceil(mergedData.jobsites.length / BATCH_SIZE);
             let totalCreated = 0;
             let totalUpdated = 0;
             let hasError = false;
             
             for (let i = 0; i < mergedData.jobsites.length; i += BATCH_SIZE) {
               const batch = mergedData.jobsites.slice(i, i + BATCH_SIZE);
-              console.log(`📝 Writing jobsites batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(mergedData.jobsites.length / BATCH_SIZE)} (${batch.length} jobsites)...`);
+              const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+              
+              setImportProgress(prev => ({
+                ...prev,
+                currentStep: `Writing jobsites batch ${batchNum}/${totalBatches} (${batch.length} jobsites)...`,
+                completedSteps: prev.completedSteps,
+                progress: (prev.completedSteps / prev.totalSteps) * 100
+              }));
+              
+              console.log(`📝 Writing jobsites batch ${batchNum}/${totalBatches} (${batch.length} jobsites)...`);
               
               const jobsitesResult = await writeJobsitesToSheet(batch);
               if (!jobsitesResult.success) {
-                console.error(`❌ Failed to write jobsites batch ${Math.floor(i / BATCH_SIZE) + 1}:`, jobsitesResult.error);
-                results.errors.push(`Google Sheets: Failed to write jobsites batch ${Math.floor(i / BATCH_SIZE) + 1} - ${jobsitesResult.error}`);
+                console.error(`❌ Failed to write jobsites batch ${batchNum}:`, jobsitesResult.error);
+                results.errors.push(`Google Sheets: Failed to write jobsites batch ${batchNum} - ${jobsitesResult.error}`);
                 hasError = true;
               } else {
                 totalCreated += jobsitesResult.result?.created || 0;
                 totalUpdated += jobsitesResult.result?.updated || 0;
-                console.log(`✅ Wrote jobsites batch ${Math.floor(i / BATCH_SIZE) + 1} (${jobsitesResult.result?.total || 0} jobsites)`);
+                console.log(`✅ Wrote jobsites batch ${batchNum} (${jobsitesResult.result?.total || 0} jobsites)`);
               }
+              
+              setImportProgress(prev => ({
+                ...prev,
+                completedSteps: prev.completedSteps + 1,
+                progress: ((prev.completedSteps + 1) / prev.totalSteps) * 100
+              }));
             }
             
             if (!hasError) {
@@ -1087,6 +1168,31 @@ export default function ImportLeadsDialog({ open, onClose }) {
                       </>
                     )}
                   </Button>
+                </div>
+              )}
+
+              {/* Progress Bar */}
+              {importStatus === 'importing' && (
+                <Card className="p-4 border-emerald-200 bg-emerald-50">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-emerald-900">{importProgress.currentStep}</span>
+                      <span className="text-emerald-700">
+                        {importProgress.completedSteps} / {importProgress.totalSteps} steps
+                      </span>
+                    </div>
+                    <div className="w-full bg-emerald-200 rounded-full h-2.5">
+                      <div
+                        className="bg-emerald-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${Math.min(importProgress.progress, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-emerald-700 text-center">
+                      {Math.round(importProgress.progress)}% complete
+                    </p>
+                  </div>
+                </Card>
+              )}
                 </div>
               )}
             </>

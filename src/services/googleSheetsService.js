@@ -386,16 +386,71 @@ async function parseContacts() {
     // Merge: imported contacts take precedence (they have more complete data)
     const contactMap = new Map();
     
+    // Helper function to create a consistent merge key
+    // Priority: lmn_contact_id > email+name combination > id
+    const getMergeKey = (contact) => {
+      // Prefer lmn_contact_id if available (most reliable for imported contacts)
+      if (contact.lmn_contact_id) {
+        return `lmn_${contact.lmn_contact_id}`;
+      }
+      // Use email+name combination for matching across sources
+      const email = (contact.email || '').toLowerCase().trim();
+      const firstName = (contact.first_name || '').toLowerCase().trim();
+      const lastName = (contact.last_name || '').toLowerCase().trim();
+      if (email && (firstName || lastName)) {
+        return `email_${email}_${firstName}_${lastName}`;
+      }
+      // Fallback to id (but this won't match across sources)
+      return contact.id || `fallback_${Math.random()}`;
+    };
+    
     // Add template contacts first
     contactsFromTemplate.forEach(contact => {
-      const key = contact.id || `${contact.email}_${contact.first_name}_${contact.last_name}`;
+      const key = getMergeKey(contact);
       if (key) contactMap.set(key, contact);
     });
     
-    // Override/add imported contacts
-    importedContacts.forEach(contact => {
-      const key = contact.lmn_contact_id || contact.id || `${contact.email}_${contact.first_name}_${contact.last_name}`;
-      if (key) contactMap.set(key, contact);
+    // Merge imported contacts: match by email+name, then merge data
+    importedContacts.forEach(importedContact => {
+      const importedKey = getMergeKey(importedContact);
+      
+      // Try to find matching template contact by email+name
+      const email = (importedContact.email || '').toLowerCase().trim();
+      const firstName = (importedContact.first_name || '').toLowerCase().trim();
+      const lastName = (importedContact.last_name || '').toLowerCase().trim();
+      const emailNameKey = email && (firstName || lastName) 
+        ? `email_${email}_${firstName}_${lastName}` 
+        : null;
+      
+      // Check if we have a template contact with the same email+name
+      let existingContact = null;
+      if (emailNameKey) {
+        // Look for existing contact by email+name key
+        for (const [key, contact] of contactMap.entries()) {
+          if (key === emailNameKey || key.startsWith(`email_${email}_`)) {
+            existingContact = contact;
+            break;
+          }
+        }
+      }
+      
+      if (existingContact) {
+        // Merge: imported contact data takes precedence, but preserve template contact's id if it's not an auto-generated one
+        const mergedContact = {
+          ...existingContact,
+          ...importedContact,
+          // Preserve template contact's id only if it's not auto-generated (contact-1, contact-2, etc.)
+          id: existingContact.id && !existingContact.id.startsWith('contact-') 
+            ? existingContact.id 
+            : importedContact.id || importedContact.lmn_contact_id || existingContact.id
+        };
+        // Update the map with merged contact using the imported key (lmn_contact_id if available)
+        contactMap.delete(emailNameKey);
+        contactMap.set(importedKey, mergedContact);
+      } else {
+        // New contact, add it
+        contactMap.set(importedKey, importedContact);
+      }
     });
     
     return Array.from(contactMap.values());
@@ -1072,6 +1127,12 @@ export async function writeToGoogleSheet(entityType, records) {
       // Clear cache to force refresh on next read
       sheetDataCache = null;
       cacheTimestamp = null;
+      
+      // Also clear the cache in base44Client if it exists
+      if (typeof window !== 'undefined' && window.__base44SheetDataCache) {
+        window.__base44SheetDataCache = null;
+      }
+      
       return result;
     } else {
       throw new Error(result.error || 'Unknown error');

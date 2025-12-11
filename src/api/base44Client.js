@@ -18,9 +18,15 @@ import { getSheetData } from '../services/googleSheetsService';
 let sheetDataCache = null;
 let isLoadingSheetData = false;
 
+// Expose cache clearing function
+export function clearSheetDataCache() {
+  sheetDataCache = null;
+  isLoadingSheetData = false;
+}
+
 // Load data from Google Sheet
-async function loadSheetData() {
-  if (isLoadingSheetData) {
+async function loadSheetData(forceRefresh = false) {
+  if (isLoadingSheetData && !forceRefresh) {
     // Wait for existing load
     while (isLoadingSheetData) {
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -28,13 +34,13 @@ async function loadSheetData() {
     return sheetDataCache;
   }
   
-  if (sheetDataCache) {
+  if (sheetDataCache && !forceRefresh) {
     return sheetDataCache;
   }
   
   isLoadingSheetData = true;
   try {
-    sheetDataCache = await getSheetData();
+    sheetDataCache = await getSheetData(forceRefresh);
   } catch (error) {
     console.error('Error loading Google Sheet data:', error);
     sheetDataCache = null;
@@ -46,9 +52,9 @@ async function loadSheetData() {
 }
 
 // Helper to get data - uses Google Sheets only, returns empty array if not available
-async function getData(entityType) {
+async function getData(entityType, forceRefresh = false) {
   try {
-    const sheetData = await loadSheetData();
+    const sheetData = await loadSheetData(forceRefresh);
     
     if (sheetData && sheetData[entityType] && sheetData[entityType].length > 0) {
       console.log(`Loaded ${sheetData[entityType].length} ${entityType} from Google Sheet`);

@@ -455,59 +455,106 @@ export default function ImportLeadsDialog({ open, onClose }) {
       }
 
       // Write all imported data to Google Sheets
-      try {
-        console.log('Writing imported data to Google Sheets...');
-        
-        // Write accounts
-        if (mergedData.accounts && mergedData.accounts.length > 0) {
-          const accountsResult = await writeAccountsToSheet(mergedData.accounts);
-          if (!accountsResult.success) {
-            console.warn('Failed to write accounts to Google Sheet:', accountsResult.error);
-            results.errors.push(`Google Sheets: Failed to write accounts - ${accountsResult.error}`);
+      const webAppUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEB_APP_URL;
+      console.log('🔍 Web App URL check:', webAppUrl ? 'Found' : 'Missing');
+      console.log('🔍 Merged data counts:', {
+        accounts: mergedData?.accounts?.length || 0,
+        contacts: mergedData?.contacts?.length || 0,
+        estimates: mergedData?.estimates?.length || 0,
+        jobsites: mergedData?.jobsites?.length || 0
+      });
+      
+      if (!webAppUrl) {
+        console.warn('⚠️ Google Sheets Web App URL not configured. Imported data will not be saved to Google Sheets.');
+        console.warn('Set VITE_GOOGLE_SHEETS_WEB_APP_URL in your environment variables to enable Google Sheets sync.');
+        console.warn('Current env vars:', Object.keys(import.meta.env).filter(k => k.includes('GOOGLE')));
+      } else {
+        try {
+          console.log('📝 Writing imported data to Google Sheets...');
+          console.log('📝 Web App URL:', webAppUrl.substring(0, 50) + '...');
+          
+          // Write accounts
+          if (mergedData.accounts && mergedData.accounts.length > 0) {
+            const accountsResult = await writeAccountsToSheet(mergedData.accounts);
+            if (!accountsResult.success) {
+              console.error('❌ Failed to write accounts to Google Sheet:', accountsResult.error);
+              results.errors.push(`Google Sheets: Failed to write accounts - ${accountsResult.error}`);
+            } else {
+              console.log(`✅ Wrote ${accountsResult.result?.total || 0} accounts to Google Sheets`);
+            }
           }
-        }
 
-        // Write contacts
-        if (mergedData.contacts && mergedData.contacts.length > 0) {
-          const contactsResult = await writeContactsToSheet(mergedData.contacts);
-          if (!contactsResult.success) {
-            console.warn('Failed to write contacts to Google Sheet:', contactsResult.error);
-            results.errors.push(`Google Sheets: Failed to write contacts - ${contactsResult.error}`);
+          // Write contacts
+          if (mergedData.contacts && mergedData.contacts.length > 0) {
+            const contactsResult = await writeContactsToSheet(mergedData.contacts);
+            if (!contactsResult.success) {
+              console.error('❌ Failed to write contacts to Google Sheet:', contactsResult.error);
+              results.errors.push(`Google Sheets: Failed to write contacts - ${contactsResult.error}`);
+            } else {
+              console.log(`✅ Wrote ${contactsResult.result?.total || 0} contacts to Google Sheets`);
+            }
           }
-        }
 
-        // Write estimates
-        if (mergedData.estimates && mergedData.estimates.length > 0) {
-          const estimatesResult = await writeEstimatesToSheet(mergedData.estimates);
-          if (!estimatesResult.success) {
-            console.warn('Failed to write estimates to Google Sheet:', estimatesResult.error);
-            results.errors.push(`Google Sheets: Failed to write estimates - ${estimatesResult.error}`);
+          // Write estimates
+          if (mergedData.estimates && mergedData.estimates.length > 0) {
+            const estimatesResult = await writeEstimatesToSheet(mergedData.estimates);
+            if (!estimatesResult.success) {
+              console.error('❌ Failed to write estimates to Google Sheet:', estimatesResult.error);
+              results.errors.push(`Google Sheets: Failed to write estimates - ${estimatesResult.error}`);
+            } else {
+              console.log(`✅ Wrote ${estimatesResult.result?.total || 0} estimates to Google Sheets`);
+            }
           }
-        }
 
-        // Write jobsites
-        if (mergedData.jobsites && mergedData.jobsites.length > 0) {
-          const jobsitesResult = await writeJobsitesToSheet(mergedData.jobsites);
-          if (!jobsitesResult.success) {
-            console.warn('Failed to write jobsites to Google Sheet:', jobsitesResult.error);
-            results.errors.push(`Google Sheets: Failed to write jobsites - ${jobsitesResult.error}`);
+          // Write jobsites
+          if (mergedData.jobsites && mergedData.jobsites.length > 0) {
+            const jobsitesResult = await writeJobsitesToSheet(mergedData.jobsites);
+            if (!jobsitesResult.success) {
+              console.error('❌ Failed to write jobsites to Google Sheet:', jobsitesResult.error);
+              results.errors.push(`Google Sheets: Failed to write jobsites - ${jobsitesResult.error}`);
+            } else {
+              console.log(`✅ Wrote ${jobsitesResult.result?.total || 0} jobsites to Google Sheets`);
+            }
           }
-        }
 
-        console.log('✅ Successfully wrote all imported data to Google Sheets');
-      } catch (err) {
-        console.error('Error writing to Google Sheets:', err);
-        results.errors.push(`Google Sheets: ${err.message}`);
-        // Don't fail the import if Google Sheets write fails - data is still imported to the app
+          console.log('✅ Successfully wrote all imported data to Google Sheets');
+        } catch (err) {
+          console.error('❌ Error writing to Google Sheets:', err);
+          results.errors.push(`Google Sheets: ${err.message}`);
+          // Don't fail the import if Google Sheets write fails - data is still imported to the app
+        }
       }
 
       setImportResults(results);
       setImportStatus('success');
 
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      queryClient.invalidateQueries({ queryKey: ['estimates'] });
-      queryClient.invalidateQueries({ queryKey: ['jobsites'] });
+      // Clear caches and force refresh after writing to Google Sheets
+      if (webAppUrl) {
+        // Wait a moment for Google Sheets to process the writes
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Clear the base44Client cache
+        const { clearSheetDataCache } = await import('@/api/base44Client');
+        if (clearSheetDataCache) {
+          clearSheetDataCache();
+        }
+      }
+
+      // Invalidate and refetch queries to show the new data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['contacts'] }),
+        queryClient.invalidateQueries({ queryKey: ['estimates'] }),
+        queryClient.invalidateQueries({ queryKey: ['jobsites'] })
+      ]);
+      
+      // Force refetch to ensure data is loaded
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['accounts'] }),
+        queryClient.refetchQueries({ queryKey: ['contacts'] }),
+        queryClient.refetchQueries({ queryKey: ['estimates'] }),
+        queryClient.refetchQueries({ queryKey: ['jobsites'] })
+      ]);
 
     } catch (err) {
       setError(`Import failed: ${err.message}`);

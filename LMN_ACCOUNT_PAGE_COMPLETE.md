@@ -210,3 +210,4 @@ Your Account Detail page now matches the LMN layout exactly with:
 **Go view it now at**: `http://localhost:5173/accounts` → Click any account!
 
 
+

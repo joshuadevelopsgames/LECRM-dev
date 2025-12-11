@@ -1,0 +1,76 @@
+# Dependencies - these are huge and not useful for code navigation
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs - generated files
+dist/
+build/
+*.tsbuildinfo
+
+# Mobile platform build artifacts (iOS/Android)
+ios/App/Pods/
+ios/App/Podfile.lock
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+ios/App/App/DerivedData/
+ios/App/App/build/
+android/.gradle/
+android/app/build/
+android/build/
+android/.idea/
+android/local.properties
+android/*.iml
+android/captures/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.vite/
+.npm/
+.yarn/
+.pnp.*
+.vercel/
+.DS_Store
+
+# Logs - not useful for code search
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files (may contain sensitive data)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Testing
+coverage/
+.nyc_output/
+
+# Large binary/image files (screenshots especially)
+Screenshot_*.png
+*.psd
+*.sketch
+
+# Lock files (not useful for code navigation)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated documentation or large markdown files can be optionally excluded
+# Uncomment if you find them slowing things down:
+# *.md

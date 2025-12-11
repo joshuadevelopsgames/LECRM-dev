@@ -6,6 +6,7 @@
 // Google Sheets API configuration
 const GOOGLE_SHEET_ID = '193wKTGmz1zvWud05U1rCY9SysGQAeYc2KboO6_JjrJs';
 const API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '';
+const WEB_APP_URL = import.meta.env.VITE_GOOGLE_SHEETS_WEB_APP_URL || '';
 
 /**
  * Fetch data from a specific sheet/tab
@@ -258,8 +259,8 @@ async function parseScorecards() {
 }
 
 /**
- * Parse accounts from Company Contacts tab
- * Extracts unique accounts from contacts data
+ * Parse accounts from Company Contacts tab and Imported Accounts tab
+ * Extracts unique accounts from contacts data and merges with imported accounts
  */
 async function parseAccounts() {
   const contacts = await parseContacts();
@@ -283,11 +284,130 @@ async function parseAccounts() {
     }
   });
   
+  // Also parse imported accounts tab if it exists
+  try {
+    const importedAccounts = await parseImportedAccounts();
+    importedAccounts.forEach(account => {
+      // Use lmn_crm_id or id as key for upsert
+      const key = account.lmn_crm_id || account.id;
+      if (key) {
+        // If account already exists, merge data (imported takes precedence)
+        if (accountMap.has(key)) {
+          accountMap.set(key, { ...accountMap.get(key), ...account });
+        } else {
+          accountMap.set(key, account);
+        }
+      }
+    });
+  } catch (error) {
+    // Imported Accounts tab might not exist yet, that's okay
+    console.log('No Imported Accounts tab found (this is normal if no imports have been done yet)');
+  }
+  
   return Array.from(accountMap.values());
 }
 
 /**
- * Parse contacts from Company Contacts tab
+ * Parse imported accounts from "Imported Accounts" tab
+ */
+async function parseImportedAccounts() {
+  const rows = await fetchSheetData('Imported Accounts');
+  if (!rows || rows.length < 2) return [];
+  
+  const headers = rows[0];
+  const accounts = [];
+  
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    
+    const account = {};
+    headers.forEach((header, index) => {
+      const value = row[index];
+      if (value !== undefined && value !== '') {
+        // Map header names to field names
+        const fieldMap = {
+          'ID': 'id',
+          'LMN CRM ID': 'lmn_crm_id',
+          'Name': 'name',
+          'Account Type': 'account_type',
+          'Status': 'status',
+          'Classification': 'classification',
+          'Revenue Segment': 'revenue_segment',
+          'Annual Revenue': 'annual_revenue',
+          'Organization Score': 'organization_score',
+          'Tags': 'tags',
+          'Address 1': 'address_1',
+          'Address 2': 'address_2',
+          'City': 'city',
+          'State': 'state',
+          'Postal Code': 'postal_code',
+          'Country': 'country',
+          'Source': 'source',
+          'Created Date': 'created_date',
+          'Last Interaction Date': 'last_interaction_date',
+          'Renewal Date': 'renewal_date',
+          'Archived': 'archived'
+        };
+        
+        const fieldName = fieldMap[header] || header.toLowerCase().replace(/\s+/g, '_');
+        
+        // Parse special types
+        if (fieldName === 'annual_revenue' || fieldName === 'organization_score') {
+          account[fieldName] = value ? parseFloat(value) : null;
+        } else if (fieldName === 'archived') {
+          account[fieldName] = value === 'TRUE' || value === true || value === 'true';
+        } else if (fieldName === 'tags' && typeof value === 'string') {
+          account[fieldName] = value.split(',').map(t => t.trim()).filter(Boolean);
+        } else {
+          account[fieldName] = value;
+        }
+      }
+    });
+    
+    if (account.id || account.lmn_crm_id) {
+      accounts.push(account);
+    }
+  }
+  
+  return accounts;
+}
+
+/**
+ * Parse contacts from Company Contacts tab and Imported Contacts tab
+ * Merges both sources
+ */
+async function parseContacts() {
+  const contactsFromTemplate = await parseContactsFromTemplate();
+  
+  // Also parse imported contacts tab if it exists
+  try {
+    const importedContacts = await parseImportedContacts();
+    // Merge: imported contacts take precedence (they have more complete data)
+    const contactMap = new Map();
+    
+    // Add template contacts first
+    contactsFromTemplate.forEach(contact => {
+      const key = contact.id || `${contact.email}_${contact.first_name}_${contact.last_name}`;
+      if (key) contactMap.set(key, contact);
+    });
+    
+    // Override/add imported contacts
+    importedContacts.forEach(contact => {
+      const key = contact.lmn_contact_id || contact.id || `${contact.email}_${contact.first_name}_${contact.last_name}`;
+      if (key) contactMap.set(key, contact);
+    });
+    
+    return Array.from(contactMap.values());
+  } catch (error) {
+    // Imported Contacts tab might not exist yet, that's okay
+    console.log('No Imported Contacts tab found, using template contacts only');
+    return contactsFromTemplate;
+  }
+}
+
+/**
+ * Parse contacts from Company Contacts tab (template format)
  * 
  * Sheet structure:
  * - Row 1: Empty | "Contact 1" | "Contact 2" | "Contact 3" | etc.
@@ -297,7 +417,7 @@ async function parseAccounts() {
  *           etc.
  * - This is a template with columns for each contact
  */
-async function parseContacts() {
+async function parseContactsFromTemplate() {
   const rows = await fetchSheetData('Company Contacts');
   if (rows.length < 2) return [];
   
@@ -378,6 +498,145 @@ async function parseContacts() {
   }
   
   return contacts;
+}
+
+/**
+ * Parse imported contacts from "Imported Contacts" tab
+ */
+async function parseImportedContacts() {
+  const rows = await fetchSheetData('Imported Contacts');
+  if (!rows || rows.length < 2) return [];
+  
+  const headers = rows[0];
+  const contacts = [];
+  
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    
+    const contact = {};
+    headers.forEach((header, index) => {
+      const value = row[index];
+      if (value !== undefined && value !== '') {
+        // Map header names to field names
+        const fieldMap = {
+          'ID': 'id',
+          'LMN Contact ID': 'lmn_contact_id',
+          'Account ID': 'account_id',
+          'Account Name': 'account_name',
+          'First Name': 'first_name',
+          'Last Name': 'last_name',
+          'Email': 'email',
+          'Email 1': 'email_1',
+          'Email 2': 'email_2',
+          'Phone': 'phone',
+          'Phone 1': 'phone_1',
+          'Phone 2': 'phone_2',
+          'Position': 'position',
+          'Title': 'title',
+          'Role': 'role',
+          'Primary Contact': 'primary_contact',
+          'Do Not Email': 'do_not_email',
+          'Do Not Mail': 'do_not_mail',
+          'Do Not Call': 'do_not_call',
+          'Referral Source': 'referral_source',
+          'Notes': 'notes',
+          'Source': 'source',
+          'Created Date': 'created_date',
+          'Archived': 'archived'
+        };
+        
+        const fieldName = fieldMap[header] || header.toLowerCase().replace(/\s+/g, '_');
+        
+        // Parse special types
+        if (fieldName === 'primary_contact' || fieldName === 'do_not_email' || 
+            fieldName === 'do_not_mail' || fieldName === 'do_not_call' || fieldName === 'archived') {
+          contact[fieldName] = value === 'TRUE' || value === true || value === 'true' || value === '1';
+        } else {
+          contact[fieldName] = value;
+        }
+      }
+    });
+    
+    if (contact.id || contact.lmn_contact_id || contact.email) {
+      contacts.push(contact);
+    }
+  }
+  
+  return contacts;
+}
+
+/**
+ * Parse imported estimates from "Imported Estimates" tab
+ */
+async function parseImportedEstimates() {
+  const rows = await fetchSheetData('Imported Estimates');
+  if (!rows || rows.length < 2) return [];
+  
+  const headers = rows[0];
+  const estimates = [];
+  
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    
+    const estimate = {};
+    headers.forEach((header, index) => {
+      const value = row[index];
+      if (value !== undefined && value !== '') {
+        const fieldName = header.toLowerCase().replace(/\s+/g, '_');
+        
+        // Parse numbers
+        if (fieldName.includes('price') || fieldName.includes('cost') || 
+            fieldName.includes('profit') || fieldName.includes('overhead') ||
+            fieldName.includes('breakeven') || fieldName === 'labor_hours' ||
+            fieldName === 'confidence_level') {
+          estimate[fieldName] = value ? parseFloat(value) : null;
+        } else if (fieldName === 'archived' || fieldName === 'exclude_stats') {
+          estimate[fieldName] = value === 'TRUE' || value === true || value === 'true';
+        } else {
+          estimate[fieldName] = value;
+        }
+      }
+    });
+    
+    if (estimate.id || estimate.lmn_estimate_id) {
+      estimates.push(estimate);
+    }
+  }
+  
+  return estimates;
+}
+
+/**
+ * Parse imported jobsites from "Imported Jobsites" tab
+ */
+async function parseImportedJobsites() {
+  const rows = await fetchSheetData('Imported Jobsites');
+  if (!rows || rows.length < 2) return [];
+  
+  const headers = rows[0];
+  const jobsites = [];
+  
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    
+    const jobsite = {};
+    headers.forEach((header, index) => {
+      const value = row[index];
+      if (value !== undefined && value !== '') {
+        const fieldName = header.toLowerCase().replace(/\s+/g, '_');
+        jobsite[fieldName] = value;
+      }
+    });
+    
+    if (jobsite.id || jobsite.lmn_jobsite_id) {
+      jobsites.push(jobsite);
+    }
+  }
+  
+  return jobsites;
 }
 
 /**
@@ -695,14 +954,16 @@ async function parseLookupLegend() {
 export async function loadDataFromGoogleSheet() {
   console.log('🔄 Starting to load data from Google Sheet...');
   try {
-    const [scorecards, contacts, insights, notes, accounts, cadence, lookups] = await Promise.all([
+    const [scorecards, contacts, insights, notes, accounts, cadence, lookups, estimates, jobsites] = await Promise.all([
       parseScorecards(),
       parseContacts(),
       parseSalesInsights(),
       parseResearchNotes(),
       parseAccounts(),
       parseContactCadence(),
-      parseLookupLegend()
+      parseLookupLegend(),
+      parseImportedEstimates().catch(() => []),
+      parseImportedJobsites().catch(() => [])
     ]);
     
     const result = {
@@ -713,7 +974,9 @@ export async function loadDataFromGoogleSheet() {
       accounts,
       sequences: cadence.sequences,
       sequenceEnrollments: cadence.enrollments,
-      lookupValues: lookups
+      lookupValues: lookups,
+      estimates: estimates || [],
+      jobsites: jobsites || []
     };
     
     console.log('✅ Successfully loaded Google Sheet data:', {
@@ -723,7 +986,9 @@ export async function loadDataFromGoogleSheet() {
       notes: notes.length,
       accounts: accounts.length,
       sequences: cadence.sequences.length,
-      lookups: lookups.length
+      lookups: lookups.length,
+      estimates: estimates?.length || 0,
+      jobsites: jobsites?.length || 0
     });
     
     return result;
@@ -763,5 +1028,81 @@ export async function getSheetData(forceRefresh = false) {
   cacheTimestamp = now;
   
   return sheetDataCache;
+}
+
+/**
+ * Write data to Google Sheets via Apps Script Web App
+ * This allows us to write data without OAuth on the frontend
+ */
+export async function writeToGoogleSheet(entityType, records) {
+  if (!WEB_APP_URL) {
+    console.warn('Google Sheets Web App URL not configured. Data will not be saved to sheet.');
+    return { success: false, error: 'Web App URL not configured' };
+  }
+
+  if (!Array.isArray(records) || records.length === 0) {
+    return { success: false, error: 'No records to write' };
+  }
+
+  try {
+    const response = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'upsert',
+        entityType: entityType,
+        records: records
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log(`✅ Successfully wrote ${result.result.total} ${entityType} to Google Sheet (${result.result.created} created, ${result.result.updated} updated)`);
+      // Clear cache to force refresh on next read
+      sheetDataCache = null;
+      cacheTimestamp = null;
+      return result;
+    } else {
+      throw new Error(result.error || 'Unknown error');
+    }
+  } catch (error) {
+    console.error(`❌ Error writing ${entityType} to Google Sheet:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Write accounts to Google Sheet
+ */
+export async function writeAccountsToSheet(accounts) {
+  return writeToGoogleSheet('accounts', accounts);
+}
+
+/**
+ * Write contacts to Google Sheet
+ */
+export async function writeContactsToSheet(contacts) {
+  return writeToGoogleSheet('contacts', contacts);
+}
+
+/**
+ * Write estimates to Google Sheet
+ */
+export async function writeEstimatesToSheet(estimates) {
+  return writeToGoogleSheet('estimates', estimates);
+}
+
+/**
+ * Write jobsites to Google Sheet
+ */
+export async function writeJobsitesToSheet(jobsites) {
+  return writeToGoogleSheet('jobsites', jobsites);
 }
 

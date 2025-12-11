@@ -6,6 +6,12 @@ import { parseLeadsList } from '@/utils/lmnLeadsListParser';
 import { parseEstimatesList } from '@/utils/lmnEstimatesListParser';
 import { parseJobsiteExport } from '@/utils/lmnJobsiteExportParser';
 import { mergeContactData } from '@/utils/lmnMergeData';
+import { 
+  writeAccountsToSheet, 
+  writeContactsToSheet, 
+  writeEstimatesToSheet, 
+  writeJobsitesToSheet 
+} from '@/services/googleSheetsService';
 import * as XLSX from 'xlsx';
 import {
   Dialog,
@@ -446,6 +452,52 @@ export default function ImportLeadsDialog({ open, onClose }) {
             results.errors.push(`Jobsite "${jobsite.name}": ${err.message}`);
           }
         }
+      }
+
+      // Write all imported data to Google Sheets
+      try {
+        console.log('Writing imported data to Google Sheets...');
+        
+        // Write accounts
+        if (mergedData.accounts && mergedData.accounts.length > 0) {
+          const accountsResult = await writeAccountsToSheet(mergedData.accounts);
+          if (!accountsResult.success) {
+            console.warn('Failed to write accounts to Google Sheet:', accountsResult.error);
+            results.errors.push(`Google Sheets: Failed to write accounts - ${accountsResult.error}`);
+          }
+        }
+
+        // Write contacts
+        if (mergedData.contacts && mergedData.contacts.length > 0) {
+          const contactsResult = await writeContactsToSheet(mergedData.contacts);
+          if (!contactsResult.success) {
+            console.warn('Failed to write contacts to Google Sheet:', contactsResult.error);
+            results.errors.push(`Google Sheets: Failed to write contacts - ${contactsResult.error}`);
+          }
+        }
+
+        // Write estimates
+        if (mergedData.estimates && mergedData.estimates.length > 0) {
+          const estimatesResult = await writeEstimatesToSheet(mergedData.estimates);
+          if (!estimatesResult.success) {
+            console.warn('Failed to write estimates to Google Sheet:', estimatesResult.error);
+            results.errors.push(`Google Sheets: Failed to write estimates - ${estimatesResult.error}`);
+          }
+        }
+
+        // Write jobsites
+        if (mergedData.jobsites && mergedData.jobsites.length > 0) {
+          const jobsitesResult = await writeJobsitesToSheet(mergedData.jobsites);
+          if (!jobsitesResult.success) {
+            console.warn('Failed to write jobsites to Google Sheet:', jobsitesResult.error);
+            results.errors.push(`Google Sheets: Failed to write jobsites - ${jobsitesResult.error}`);
+          }
+        }
+
+        console.log('✅ Successfully wrote all imported data to Google Sheets');
+      } catch (err) {
+        console.error('Error writing to Google Sheets:', err);
+        results.errors.push(`Google Sheets: ${err.message}`);
       }
 
       setImportResults(results);

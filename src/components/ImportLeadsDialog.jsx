@@ -498,6 +498,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
       } catch (err) {
         console.error('Error writing to Google Sheets:', err);
         results.errors.push(`Google Sheets: ${err.message}`);
+        // Don't fail the import if Google Sheets write fails - data is still imported to the app
       }
 
       setImportResults(results);

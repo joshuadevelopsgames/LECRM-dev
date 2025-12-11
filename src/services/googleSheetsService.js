@@ -1002,7 +1002,9 @@ export async function loadDataFromGoogleSheet() {
       accounts: [],
       sequences: [],
       sequenceEnrollments: [],
-      lookupValues: []
+      lookupValues: [],
+      estimates: [],
+      jobsites: []
     };
   }
 }
@@ -1035,8 +1037,10 @@ export async function getSheetData(forceRefresh = false) {
  * This allows us to write data without OAuth on the frontend
  */
 export async function writeToGoogleSheet(entityType, records) {
-  if (!WEB_APP_URL) {
+  const webAppUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEB_APP_URL || '';
+  if (!webAppUrl) {
     console.warn('Google Sheets Web App URL not configured. Data will not be saved to sheet.');
+    console.warn('Please set VITE_GOOGLE_SHEETS_WEB_APP_URL in your environment variables.');
     return { success: false, error: 'Web App URL not configured' };
   }
 
@@ -1045,7 +1049,7 @@ export async function writeToGoogleSheet(entityType, records) {
   }
 
   try {
-    const response = await fetch(WEB_APP_URL, {
+    const response = await fetch(webAppUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

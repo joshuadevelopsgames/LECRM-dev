@@ -19,19 +19,8 @@
 const SHEET_ID = '1CzkVSbflUrYO_90Zk7IEreDOIV4lMFnWe30dFilFa6s'; // Update with your sheet ID
 
 /**
- * Handle CORS by returning HTML with proper headers
- * Google Apps Script Web Apps handle CORS automatically when deployed correctly,
- * but we use HtmlService to ensure proper CORS headers
- */
-function returnJsonWithCors(data) {
-  return HtmlService.createHtmlOutput(JSON.stringify(data))
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .setContent(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-/**
  * Handle POST requests to write data to sheets
+ * Note: Google Apps Script Web Apps handle CORS automatically when deployed with "Anyone" access
  */
 function doPost(e) {
   try {
@@ -39,24 +28,24 @@ function doPost(e) {
     const { action, entityType, records } = data;
 
     if (action !== 'upsert' || !entityType || !records || !Array.isArray(records)) {
-      return returnJsonWithCors({
+      return ContentService.createTextOutput(JSON.stringify({
         success: false,
         error: 'Invalid request format'
-      });
+      })).setMimeType(ContentService.MimeType.JSON);
     }
 
     const result = writeToSheet(entityType, records);
 
-    return returnJsonWithCors({
+    return ContentService.createTextOutput(JSON.stringify({
       success: true,
       result: result
-    });
+    })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
-    return returnJsonWithCors({
+    return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: error.toString()
-    });
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -64,11 +53,11 @@ function doPost(e) {
  * Handle GET requests (for testing)
  */
 function doGet(e) {
-  return returnJsonWithCors({
+  return ContentService.createTextOutput(JSON.stringify({
     success: true,
     message: 'LECRM Google Sheets Sync Web App is running',
     timestamp: new Date().toISOString()
-  });
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**

@@ -1193,8 +1193,6 @@ export default function ImportLeadsDialog({ open, onClose }) {
                   </div>
                 </Card>
               )}
-                </div>
-              )}
             </>
           ) : null}
 

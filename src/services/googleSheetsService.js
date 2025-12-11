@@ -1122,29 +1122,28 @@ export async function writeToGoogleSheet(entityType, records) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
     
-    try {
-      const response = await fetch(webAppUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        redirect: 'follow', // Important: follow redirects
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
+    const response = await fetch(webAppUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      redirect: 'follow', // Important: follow redirects
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
 
-      console.log(`📥 Response status: ${response.status} ${response.statusText}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ HTTP error response:`, errorText);
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText.substring(0, 200)}`);
-      }
+    console.log(`📥 Response status: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ HTTP error response:`, errorText);
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText.substring(0, 200)}`);
+    }
 
-      const result = await response.json();
-      console.log(`📥 Response result:`, result);
+    const result = await response.json();
+    console.log(`📥 Response result:`, result);
     
     if (result.success) {
       console.log(`✅ Successfully wrote ${result.result.total} ${entityType} to Google Sheet (${result.result.created} created, ${result.result.updated} updated)`);
@@ -1161,16 +1160,11 @@ export async function writeToGoogleSheet(entityType, records) {
     } else {
       throw new Error(result.error || 'Unknown error');
     }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        console.error(`❌ Timeout writing ${entityType} to Google Sheet (took longer than 5 minutes)`);
-        return { success: false, error: 'Request timeout - Google Apps Script may be processing a large batch. Try importing in smaller chunks.' };
-      }
-      console.error(`❌ Error writing ${entityType} to Google Sheet:`, error);
-      return { success: false, error: error.message };
-    }
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.error(`❌ Timeout writing ${entityType} to Google Sheet (took longer than 5 minutes)`);
+      return { success: false, error: 'Request timeout - Google Apps Script may be processing a large batch. Try importing in smaller chunks.' };
+    }
     console.error(`❌ Error writing ${entityType} to Google Sheet:`, error);
     return { success: false, error: error.message };
   }

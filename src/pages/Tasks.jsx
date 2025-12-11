@@ -923,7 +923,7 @@ export default function Tasks() {
                 const isSelected = selectedTasks.includes(task.id);
                 
                 return (
-                  <SortableTaskItem
+                  <TaskItem
                     key={task.id}
                     task={task}
                     isSelected={isSelected}
@@ -1053,7 +1053,7 @@ export default function Tasks() {
                 const isMobileView = isPWA || isMobile || isNativeApp;
                 
                 return (
-                  <SortableTaskItem
+                  <TaskItem
                     key={task.id}
                     task={task}
                     isSelected={isSelected}

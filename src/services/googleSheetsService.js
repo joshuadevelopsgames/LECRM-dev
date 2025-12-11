@@ -1117,11 +1117,13 @@ export async function writeToGoogleSheet(entityType, records) {
       firstRecordKeys: payload.records[0] ? Object.keys(payload.records[0]).slice(0, 5) : []
     });
     
+    // Use text/plain to avoid CORS preflight (Google Apps Script handles this better)
     const response = await fetch(webAppUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'text/plain;charset=utf-8',
       },
+      redirect: 'follow', // Important: follow redirects
       body: JSON.stringify(payload)
     });
 

@@ -613,22 +613,11 @@ export default function ImportLeadsDialog({ open, onClose }) {
           {/* Loading State */}
           {importStatus === 'importing' && (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="relative">
-                <RefreshCw className="w-12 h-12 text-emerald-600 animate-spin" />
-                <div className="absolute inset-0 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
-              </div>
+              <RefreshCw className="w-12 h-12 text-emerald-600 animate-spin" />
               <div className="text-center">
                 <p className="text-lg font-semibold text-slate-900">Importing Data...</p>
-                <p className="text-sm text-slate-600 mt-1">{importProgress.currentStep}</p>
-                <div className="mt-4 w-64 bg-slate-200 rounded-full h-2">
-                  <div
-                    className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(importProgress.progress, 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  {importProgress.completedSteps} / {importProgress.totalSteps} steps ({Math.round(importProgress.progress)}%)
-                </p>
+                <p className="text-sm text-slate-600 mt-2">{importProgress.currentStep}</p>
+                <p className="text-xs text-slate-500 mt-3">Please wait while we import your data</p>
               </div>
             </div>
           )}
@@ -1150,28 +1139,6 @@ export default function ImportLeadsDialog({ open, onClose }) {
                 </div>
               )}
 
-              {/* Progress Bar */}
-              {importStatus === 'importing' && (
-                <Card className="p-4 border-emerald-200 bg-emerald-50">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-emerald-900">{importProgress.currentStep}</span>
-                      <span className="text-emerald-700">
-                        {importProgress.completedSteps} / {importProgress.totalSteps} steps
-                      </span>
-                    </div>
-                    <div className="w-full bg-emerald-200 rounded-full h-2.5">
-                      <div
-                        className="bg-emerald-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${Math.min(importProgress.progress, 100)}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-emerald-700 text-center">
-                      {Math.round(importProgress.progress)}% complete
-                    </p>
-                  </div>
-                </Card>
-              )}
             </>
           ) : null}
 

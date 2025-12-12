@@ -86,11 +86,39 @@ export default function AccountDetail() {
     queryFn: () => base44.entities.ResearchNote.filter({ account_id: accountId }, '-recorded_date')
   });
 
-  // Mock estimates for now - TODO: Replace with actual estimates API
-  const estimates = [];
-  
-  // Mock jobsites for now - TODO: Replace with actual jobsites API
-  const jobsites = [];
+  // Fetch estimates for this account
+  const { data: estimates = [] } = useQuery({
+    queryKey: ['estimates', accountId],
+    queryFn: async () => {
+      if (!accountId) return [];
+      const response = await fetch('/api/data/estimates');
+      if (!response.ok) return [];
+      const result = await response.json();
+      if (result.success) {
+        // Filter estimates by account_id (UUID match)
+        return result.data.filter(est => est.account_id === accountId);
+      }
+      return [];
+    },
+    enabled: !!accountId && !!account
+  });
+
+  // Fetch jobsites for this account
+  const { data: jobsites = [] } = useQuery({
+    queryKey: ['jobsites', accountId],
+    queryFn: async () => {
+      if (!accountId) return [];
+      const response = await fetch('/api/data/jobsites');
+      if (!response.ok) return [];
+      const result = await response.json();
+      if (result.success) {
+        // Filter jobsites by account_id (UUID match)
+        return result.data.filter(job => job.account_id === accountId);
+      }
+      return [];
+    },
+    enabled: !!accountId && !!account
+  });
 
   // Handle account updates
   const updateAccountMutation = useMutation({

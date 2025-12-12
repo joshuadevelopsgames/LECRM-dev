@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp } from 'lucide-react';
 
 export default function TotalWork({ estimates = [] }) {
-  // Calculate total estimated value
-  const totalEstimated = estimates.reduce((sum, est) => sum + (est.total_amount || 0), 0);
+  // Calculate total estimated value (use total_price from schema)
+  const totalEstimated = estimates.reduce((sum, est) => sum + (parseFloat(est.total_price) || 0), 0);
   
   // Calculate total sold value (won estimates)
   const totalSold = estimates
-    .filter(est => est.status === 'won')
-    .reduce((sum, est) => sum + (est.total_amount || 0), 0);
+    .filter(est => est.status === 'won' || est.status === 'sold')
+    .reduce((sum, est) => sum + (parseFloat(est.total_price) || 0), 0);
   
   // Calculate sold percentage
   const soldPercentage = totalEstimated > 0 

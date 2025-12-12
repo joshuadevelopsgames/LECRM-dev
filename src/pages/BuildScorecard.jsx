@@ -186,21 +186,35 @@ export default function BuildScorecard() {
         return sum + ((q.weight || 0) * maxAnswer);
       }, 0);
 
-      // Create a temporary template for this custom scorecard
-      const customTemplate = {
-        id: `custom-${Date.now()}`,
-        name: scorecardName,
-        description: scorecardDescription,
-        questions: questions,
-        total_possible_score: totalPossibleScore,
-        pass_threshold: 70,
-        is_active: true
-      };
-
-      // Navigate to TakeScorecard with the custom template data
-      // We'll pass it via URL params or use a different approach
-      const templateData = encodeURIComponent(JSON.stringify(customTemplate));
-      navigate(createPageUrl(`TakeScorecard?accountId=${accountId}&customTemplate=${templateData}`));
+      if (isCustom) {
+        // For custom scorecards, pass the template data via URL
+        const customTemplate = {
+          id: `custom-${Date.now()}`,
+          name: scorecardName,
+          description: scorecardDescription,
+          questions: questions,
+          total_possible_score: totalPossibleScore,
+          pass_threshold: 70,
+          is_active: true
+        };
+        const templateData = encodeURIComponent(JSON.stringify(customTemplate));
+        navigate(createPageUrl(`TakeScorecard?accountId=${accountId}&customTemplate=${templateData}`));
+      } else {
+        // For template-based scorecards, pass the modified template data
+        // Since we may have modified the template, we need to pass the questions
+        // But we should still use the original templateId for reference
+        const modifiedTemplate = {
+          id: templateId,
+          name: scorecardName,
+          description: scorecardDescription,
+          questions: questions,
+          total_possible_score: totalPossibleScore,
+          pass_threshold: template?.pass_threshold || 70,
+          is_active: true
+        };
+        const templateData = encodeURIComponent(JSON.stringify(modifiedTemplate));
+        navigate(createPageUrl(`TakeScorecard?accountId=${accountId}&templateId=${templateId}&customTemplate=${templateData}`));
+      }
     }
   });
 

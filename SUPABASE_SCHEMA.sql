@@ -138,6 +138,26 @@ CREATE TABLE IF NOT EXISTS jobsites (
   updated_at timestamptz DEFAULT now()
 );
 
+-- Create scorecard_responses table
+CREATE TABLE IF NOT EXISTS scorecard_responses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id uuid REFERENCES accounts(id) ON DELETE SET NULL,
+  template_id uuid,
+  template_name text,
+  responses jsonb,
+  section_scores jsonb,
+  total_score numeric,
+  normalized_score numeric,
+  is_pass boolean,
+  scorecard_date date,
+  completed_by text,
+  completed_date timestamptz,
+  scorecard_type text DEFAULT 'manual',
+  is_primary boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_accounts_lmn_crm_id ON accounts(lmn_crm_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_lmn_contact_id ON contacts(lmn_contact_id);
@@ -146,6 +166,9 @@ CREATE INDEX IF NOT EXISTS idx_estimates_lmn_estimate_id ON estimates(lmn_estima
 CREATE INDEX IF NOT EXISTS idx_estimates_account_id ON estimates(account_id);
 CREATE INDEX IF NOT EXISTS idx_jobsites_lmn_jobsite_id ON jobsites(lmn_jobsite_id);
 CREATE INDEX IF NOT EXISTS idx_jobsites_account_id ON jobsites(account_id);
+CREATE INDEX IF NOT EXISTS idx_scorecard_responses_account_id ON scorecard_responses(account_id);
+CREATE INDEX IF NOT EXISTS idx_scorecard_responses_template_id ON scorecard_responses(template_id);
+CREATE INDEX IF NOT EXISTS idx_scorecard_responses_completed_date ON scorecard_responses(completed_date);
 
 -- Trigger function to auto-update updated_at
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -161,6 +184,7 @@ DROP TRIGGER IF EXISTS trg_accounts_updated_at ON accounts;
 DROP TRIGGER IF EXISTS trg_contacts_updated_at ON contacts;
 DROP TRIGGER IF EXISTS trg_estimates_updated_at ON estimates;
 DROP TRIGGER IF EXISTS trg_jobsites_updated_at ON jobsites;
+DROP TRIGGER IF EXISTS trg_scorecard_responses_updated_at ON scorecard_responses;
 
 -- Create triggers
 CREATE TRIGGER trg_accounts_updated_at
@@ -175,17 +199,22 @@ CREATE TRIGGER trg_estimates_updated_at
 CREATE TRIGGER trg_jobsites_updated_at
   BEFORE UPDATE ON jobsites FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER trg_scorecard_responses_updated_at
+  BEFORE UPDATE ON scorecard_responses FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE estimates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobsites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scorecard_responses ENABLE ROW LEVEL SECURITY;
 
 -- Drop policies if they exist (for idempotency)
 DROP POLICY IF EXISTS accounts_authenticated_all ON accounts;
 DROP POLICY IF EXISTS contacts_authenticated_all ON contacts;
 DROP POLICY IF EXISTS estimates_authenticated_all ON estimates;
 DROP POLICY IF EXISTS jobsites_authenticated_all ON jobsites;
+DROP POLICY IF EXISTS scorecard_responses_authenticated_all ON scorecard_responses;
 
 -- RLS policies: restrict to authenticated users
 -- Note: service_role key bypasses RLS, so API endpoints will work fine
@@ -199,5 +228,8 @@ CREATE POLICY estimates_authenticated_all ON estimates
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY jobsites_authenticated_all ON jobsites
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY scorecard_responses_authenticated_all ON scorecard_responses
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 

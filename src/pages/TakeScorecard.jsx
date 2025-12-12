@@ -159,12 +159,16 @@ export default function TakeScorecard() {
     onSuccess: async (result) => {
       console.log('✅ Scorecard submitted successfully:', result);
       
-      // Invalidate queries to refresh data
+      // Invalidate and refetch queries to refresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['account', accountId] }),
         queryClient.invalidateQueries({ queryKey: ['accounts'] }),
         queryClient.invalidateQueries({ queryKey: ['scorecards', accountId] })
       ]);
+      
+      // Force refetch the account data to ensure we have the latest score
+      await queryClient.refetchQueries({ queryKey: ['account', accountId] });
+      await queryClient.refetchQueries({ queryKey: ['accounts'] });
       
       // Use navigate instead of window.location for better state management
       // This ensures React Query cache is properly cleared

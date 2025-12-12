@@ -82,8 +82,8 @@ export default async function handler(req, res) {
         }
         
         // Remove id if it's not a valid UUID - let Supabase generate it
-        // Also remove internal tracking fields that don't exist in the schema
-        const { id, account_id, contact_id, _is_orphaned, _link_method, ...estimateWithoutId } = estimate;
+        // Also remove internal tracking fields and fields that don't exist in the schema
+        const { id, account_id, contact_id, _is_orphaned, _link_method, crm_tags, ...estimateWithoutId } = estimate;
         const estimateData = {
           ...estimateWithoutId,
           updated_at: new Date().toISOString()
@@ -187,8 +187,8 @@ export default async function handler(req, res) {
             seenInBatch.add(lookupValue);
             
             // Remove id if it's not a valid UUID - let Supabase generate it
-            // Also remove internal tracking fields that don't exist in the schema
-            const { id, account_id, contact_id, _is_orphaned, _link_method, ...estimateWithoutIds } = estimate;
+            // Also remove internal tracking fields and fields that don't exist in the schema
+            const { id, account_id, contact_id, _is_orphaned, _link_method, crm_tags, ...estimateWithoutIds } = estimate;
             const estimateData = {
               ...estimateWithoutIds,
               updated_at: new Date().toISOString()

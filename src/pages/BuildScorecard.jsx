@@ -59,16 +59,30 @@ export default function BuildScorecard() {
     if (template && !isInitialized) {
       setScorecardName(`${template.name} (Custom)`);
       setScorecardDescription(template.description || '');
+      // Ensure questions is always an array
+      const templateQuestions = Array.isArray(template.questions) ? template.questions : [];
       setQuestions(
-        template.questions?.map((q, index) => ({
-          ...q,
-          id: `q-${index}`,
-          question_text: q.question_text || '',
-          weight: q.weight || 5,
-          answer_type: q.answer_type || 'yes_no',
-          section: q.section || 'Other',
-          category: q.category || 'Other'
-        })) || []
+        templateQuestions.map((q, index) => {
+          if (!q || typeof q !== 'object') {
+            return {
+              id: `q-${index}`,
+              question_text: '',
+              weight: 5,
+              answer_type: 'yes_no',
+              section: 'Other',
+              category: 'Other'
+            };
+          }
+          return {
+            ...q,
+            id: `q-${index}`,
+            question_text: q.question_text || '',
+            weight: q.weight || 5,
+            answer_type: q.answer_type || 'yes_no',
+            section: q.section || 'Other',
+            category: q.category || 'Other'
+          };
+        })
       );
       setIsInitialized(true);
     } else if (isCustom && !isInitialized) {

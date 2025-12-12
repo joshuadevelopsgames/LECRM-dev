@@ -94,6 +94,24 @@ export default function BuildScorecard() {
     return Array.from(sectionSet);
   }, [questions]);
 
+  // Group questions by section (ensure questions is always an array)
+  // MUST be called before any early returns (React hooks rule)
+  const questionsBySection = useMemo(() => {
+    const grouped = {};
+    if (!Array.isArray(questions)) {
+      return grouped;
+    }
+    questions.forEach((question) => {
+      if (!question) return;
+      const section = (question.section) ? question.section : 'Other';
+      if (!grouped[section]) {
+        grouped[section] = [];
+      }
+      grouped[section].push(question);
+    });
+    return grouped;
+  }, [questions]);
+
   const addQuestion = () => {
     if (!newQuestion.question_text.trim()) {
       alert('Please enter a question');
@@ -191,23 +209,6 @@ export default function BuildScorecard() {
       </Card>
     );
   }
-
-  // Group questions by section (ensure questions is always an array)
-  const questionsBySection = useMemo(() => {
-    const grouped = {};
-    if (!Array.isArray(questions)) {
-      return grouped;
-    }
-    questions.forEach((question) => {
-      if (!question) return;
-      const section = (question.section) ? question.section : 'Other';
-      if (!grouped[section]) {
-        grouped[section] = [];
-      }
-      grouped[section].push(question);
-    });
-    return grouped;
-  }, [questions]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">

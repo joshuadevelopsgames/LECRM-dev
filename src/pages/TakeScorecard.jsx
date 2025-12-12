@@ -23,10 +23,10 @@ export default function TakeScorecard() {
   const customDescription = urlParams.get('description') || '';
   const customTemplateParam = urlParams.get('customTemplate'); // For templates built in BuildScorecard
 
+  const navigate = useNavigate();
   const [answers, setAnswers] = useState({});
   const [scorecardDate, setScorecardDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   // Parse custom template from URL if provided (from BuildScorecard)
   const parsedCustomTemplate = useMemo(() => {

@@ -588,7 +588,6 @@ export default function ImportLeadsDialog({ open, onClose }) {
         console.log(`✅ Linked ${linkedCount} of ${updatedContacts.length} contacts to accounts`);
         
         try {
-        try {
           const response = await fetch('/api/data/contacts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

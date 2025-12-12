@@ -107,16 +107,27 @@ export default function TakeScorecard() {
     mutationFn: async (data) => {
       const user = await base44.auth.me();
       
+      // Map calculateScore output to expected format
+      const normalizedScore = data.normalized || data.normalized_score || 0;
+      const totalScore = data.total || data.total_score || 0;
+      
+      console.log('📊 Submitting scorecard:', {
+        normalizedScore,
+        totalScore,
+        responses: data.responses?.length || 0,
+        section_scores: data.section_scores
+      });
+      
       // Create scorecard response with section breakdown
       await base44.entities.ScorecardResponse.create({
         account_id: accountId,
         template_id: isCustom ? null : templateId,
         template_name: isCustom ? (customName || 'Custom Scorecard') : activeTemplate?.name || 'Scorecard',
-        responses: data.responses,
-        section_scores: data.section_scores,
-        total_score: data.total_score,
-        normalized_score: data.normalized_score,
-        is_pass: data.is_pass,
+        responses: data.responses || [],
+        section_scores: data.section_scores || {},
+        total_score: totalScore,
+        normalized_score: normalizedScore,
+        is_pass: data.is_pass || false,
         scorecard_date: scorecardDate,
         completed_by: user.email,
         completed_date: new Date().toISOString(),
@@ -124,15 +135,22 @@ export default function TakeScorecard() {
       });
 
       // Update account with the score from this scorecard
+      console.log('🔄 Updating account score:', accountId, normalizedScore);
       await base44.entities.Account.update(accountId, {
-        organization_score: data.normalized_score
+        organization_score: normalizedScore
       });
+      console.log('✅ Account score updated successfully');
     },
     onSuccess: () => {
+      console.log('✅ Scorecard submitted successfully');
       queryClient.invalidateQueries({ queryKey: ['account', accountId] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['scorecards', accountId] });
       window.location.href = createPageUrl(`AccountDetail?id=${accountId}`);
+    },
+    onError: (error) => {
+      console.error('❌ Error submitting scorecard:', error);
+      alert(`Failed to submit scorecard: ${error.message || 'Unknown error'}`);
     }
   });
 

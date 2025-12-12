@@ -610,6 +610,29 @@ export default function ImportLeadsDialog({ open, onClose }) {
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Loading State */}
+          {importStatus === 'importing' && (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="relative">
+                <RefreshCw className="w-12 h-12 text-emerald-600 animate-spin" />
+                <div className="absolute inset-0 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-slate-900">Importing Data...</p>
+                <p className="text-sm text-slate-600 mt-1">{importProgress.currentStep}</p>
+                <div className="mt-4 w-64 bg-slate-200 rounded-full h-2">
+                  <div
+                    className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(importProgress.progress, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  {importProgress.completedSteps} / {importProgress.totalSteps} steps ({Math.round(importProgress.progress)}%)
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Upload Section */}
           {importStatus === 'idle' || importStatus === 'ready' ? (
             <>

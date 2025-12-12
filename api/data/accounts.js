@@ -135,6 +135,8 @@ export default async function handler(req, res) {
       
       if (action === 'bulk_upsert') {
         // Bulk upsert multiple accounts in Supabase
+        // IMPORTANT: We use ID-based matching (lmn_crm_id) ONLY, never name matching
+        // IDs are immutable and reliable, while names can change (typos, rebranding, etc.)
         const { accounts, lookupField = 'lmn_crm_id' } = data;
         let created = 0;
         let updated = 0;

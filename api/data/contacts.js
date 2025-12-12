@@ -127,6 +127,8 @@ export default async function handler(req, res) {
       }
       
       if (action === 'bulk_upsert') {
+        // IMPORTANT: We use ID-based matching (lmn_contact_id) ONLY, never name/email matching
+        // IDs are immutable and reliable, while names/emails can change
         const { contacts, lookupField = 'lmn_contact_id' } = data;
         let created = 0;
         let updated = 0;

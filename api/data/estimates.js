@@ -127,6 +127,8 @@ export default async function handler(req, res) {
       }
       
       if (action === 'bulk_upsert') {
+        // IMPORTANT: We use ID-based matching (lmn_estimate_id) ONLY, never name/number matching
+        // IDs are immutable and reliable, while estimate numbers/names can change
         const { estimates, lookupField = 'lmn_estimate_id' } = data;
         let created = 0;
         let updated = 0;

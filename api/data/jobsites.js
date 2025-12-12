@@ -127,6 +127,8 @@ export default async function handler(req, res) {
       }
       
       if (action === 'bulk_upsert') {
+        // IMPORTANT: We use ID-based matching (lmn_jobsite_id) ONLY, never name/address matching
+        // IDs are immutable and reliable, while names/addresses can change
         const { jobsites, lookupField = 'lmn_jobsite_id' } = data;
         let created = 0;
         let updated = 0;

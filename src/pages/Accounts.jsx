@@ -126,11 +126,27 @@ export default function Accounts() {
     // Check both account_type and tags for type matching
     let matchesType = true;
     if (filterType !== 'all') {
+      // Get the effective account type (from tags or account_type)
       const accountTypeForFilter = getAccountTypeForFiltering(account);
-      const accountTypeMatch = account.account_type?.toLowerCase() === filterType;
-      const tagBasedMatch = accountTypeForFilter === filterType;
+      
+      // Match if either the account_type matches OR the tag-based type matches
+      const accountTypeMatch = account.account_type?.toLowerCase() === filterType.toLowerCase();
+      const tagBasedMatch = accountTypeForFilter === filterType.toLowerCase();
       
       matchesType = accountTypeMatch || tagBasedMatch;
+      
+      // Debug logging (remove in production if needed)
+      if (!matchesType && (account.tags || []).length > 0) {
+        console.log('Filter debug:', {
+          accountName: account.name,
+          filterType,
+          accountType: account.account_type,
+          tags: account.tags,
+          accountTypeForFilter,
+          accountTypeMatch,
+          tagBasedMatch
+        });
+      }
     }
     
     const matchesSegment = filterSegment === 'all' || account.revenue_segment === filterSegment;

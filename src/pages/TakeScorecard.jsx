@@ -26,6 +26,7 @@ export default function TakeScorecard() {
   const [answers, setAnswers] = useState({});
   const [scorecardDate, setScorecardDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Parse custom template from URL if provided (from BuildScorecard)
   const parsedCustomTemplate = useMemo(() => {

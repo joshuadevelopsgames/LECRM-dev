@@ -559,7 +559,6 @@ export default function ImportLeadsDialog({ open, onClose }) {
             if (!hasError) {
               console.log(`✅ Successfully wrote all ${mergedData.contacts.length} contacts to Google Sheets (${totalCreated} created, ${totalUpdated} updated)`);
             }
-          }
 
           // Write estimates (split into batches to avoid timeout)
           if (mergedData.estimates && mergedData.estimates.length > 0) {

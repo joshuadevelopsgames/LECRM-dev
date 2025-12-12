@@ -81,11 +81,17 @@ export default async function handler(req, res) {
           throw findError;
         }
         
+        // Remove id if it's not a valid UUID - let Supabase generate it
+        const { id, ...estimateWithoutId } = estimate;
         const estimateData = {
-          ...estimate,
-          id: estimate.id || `est_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          ...estimateWithoutId,
           updated_at: new Date().toISOString()
         };
+        
+        // Only include id if it's a valid UUID format
+        if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          estimateData.id = id;
+        }
         
         if (existing) {
           const { data: updated, error: updateError } = await supabase
@@ -125,7 +131,8 @@ export default async function handler(req, res) {
         let created = 0;
         let updated = 0;
         
-        const BATCH_SIZE = 100;
+        // Use smaller batch size for estimates due to larger payload size
+        const BATCH_SIZE = 50;
         for (let i = 0; i < estimates.length; i += BATCH_SIZE) {
           const batch = estimates.slice(i, i + BATCH_SIZE);
           
@@ -146,11 +153,17 @@ export default async function handler(req, res) {
           const toUpdate = [];
           
           batch.forEach(estimate => {
+            // Remove id if it's not a valid UUID - let Supabase generate it
+            const { id, ...estimateWithoutId } = estimate;
             const estimateData = {
-              ...estimate,
-              id: estimate.id || `est_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              ...estimateWithoutId,
               updated_at: new Date().toISOString()
             };
+            
+            // Only include id if it's a valid UUID format
+            if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+              estimateData.id = id;
+            }
             
             const lookupValue = estimate[lookupField];
             if (lookupValue && existingMap.has(lookupValue)) {
@@ -214,4 +227,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 

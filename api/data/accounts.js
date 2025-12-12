@@ -86,11 +86,17 @@ export default async function handler(req, res) {
           throw findError;
         }
         
+        // Remove id if it's not a valid UUID - let Supabase generate it
+        const { id, ...accountWithoutId } = account;
         const accountData = {
-          ...account,
-          id: account.id || `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          ...accountWithoutId,
           updated_at: new Date().toISOString()
         };
+        
+        // Only include id if it's a valid UUID format
+        if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          accountData.id = id;
+        }
         
         if (existing) {
           // Update existing
@@ -156,18 +162,24 @@ export default async function handler(req, res) {
           const toUpdate = [];
           
           batch.forEach(account => {
+            // Remove id if it's not a valid UUID - let Supabase generate it
+            const { id, ...accountWithoutId } = account;
             const accountData = {
-              ...account,
-              id: account.id || `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              ...accountWithoutId,
               updated_at: new Date().toISOString()
             };
             
+            // Only include id if it's a valid UUID format
+            if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+              accountData.id = id;
+            }
+            
             const lookupValue = account[lookupField];
             if (lookupValue && existingMap.has(lookupValue)) {
-              // Update existing
+              // Update existing - use the UUID from database
               toUpdate.push({ id: existingMap.get(lookupValue), data: accountData });
             } else {
-              // Create new
+              // Create new - let Supabase generate UUID
               accountData.created_at = new Date().toISOString();
               toInsert.push(accountData);
             }
@@ -212,12 +224,18 @@ export default async function handler(req, res) {
       
       if (action === 'create') {
         // Create new account in Supabase
+        // Remove id if it's not a valid UUID - let Supabase generate it
+        const { id, ...dataWithoutId } = data;
         const accountData = { 
-          ...data, 
-          id: data.id || `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          ...dataWithoutId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
+        
+        // Only include id if it's a valid UUID format
+        if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          accountData.id = id;
+        }
         
         const { data: created, error } = await supabase
           .from('accounts')
@@ -305,4 +323,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 

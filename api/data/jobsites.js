@@ -81,11 +81,17 @@ export default async function handler(req, res) {
           throw findError;
         }
         
+        // Remove id if it's not a valid UUID - let Supabase generate it
+        const { id, ...jobsiteWithoutId } = jobsite;
         const jobsiteData = {
-          ...jobsite,
-          id: jobsite.id || `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          ...jobsiteWithoutId,
           updated_at: new Date().toISOString()
         };
+        
+        // Only include id if it's a valid UUID format
+        if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          jobsiteData.id = id;
+        }
         
         if (existing) {
           const { data: updated, error: updateError } = await supabase
@@ -146,11 +152,17 @@ export default async function handler(req, res) {
           const toUpdate = [];
           
           batch.forEach(jobsite => {
+            // Remove id if it's not a valid UUID - let Supabase generate it
+            const { id, ...jobsiteWithoutId } = jobsite;
             const jobsiteData = {
-              ...jobsite,
-              id: jobsite.id || `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              ...jobsiteWithoutId,
               updated_at: new Date().toISOString()
             };
+            
+            // Only include id if it's a valid UUID format
+            if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+              jobsiteData.id = id;
+            }
             
             const lookupValue = jobsite[lookupField];
             if (lookupValue && existingMap.has(lookupValue)) {
@@ -214,4 +226,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 

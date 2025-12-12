@@ -13,8 +13,58 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
   const estimates = estimatesData?.estimates || [];
   const jobsites = jobsitesData?.jobsites || [];
   
+  // Helper functions for matching (defined before use)
+  const normalizeName = (name) => {
+    if (!name) return '';
+    return name.toLowerCase()
+      .trim()
+      .replace(/[.,\-_]/g, ' ') // Replace punctuation with spaces
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/\b(inc|llc|ltd|corp|corporation|company|co)\b/gi, '') // Remove common suffixes
+      .trim();
+  };
+
+  const normalizePhone = (phone) => {
+    if (!phone) return '';
+    return phone.replace(/\D/g, ''); // Remove all non-digits
+  };
+
+  const fuzzyMatchNames = (name1, name2) => {
+    if (!name1 || !name2) return false;
+    const n1 = normalizeName(name1);
+    const n2 = normalizeName(name2);
+    
+    // Exact match after normalization
+    if (n1 === n2) return true;
+    
+    // Check if one contains the other (for partial matches)
+    if (n1.length > 5 && n2.length > 5) {
+      if (n1.includes(n2) || n2.includes(n1)) return true;
+    }
+    
+    // Calculate similarity (simple Levenshtein-like check)
+    const similarity = calculateSimilarity(n1, n2);
+    return similarity > 0.85; // 85% similarity threshold
+  };
+
+  const calculateSimilarity = (str1, str2) => {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    if (longer.length === 0) return 1.0;
+    
+    // Simple character overlap check
+    let matches = 0;
+    for (let i = 0; i < shorter.length; i++) {
+      if (longer.includes(shorter[i])) matches++;
+    }
+    return matches / longer.length;
+  };
+
   // Create lookup map for supplemental data (from Leads List)
   const supplementalMap = new Map();
+  const supplementalEmailMap = new Map();
+  const supplementalPhoneMap = new Map();
+  const supplementalNameMap = new Map(); // normalized name -> supplemental data
   
   supplementalData.forEach(supp => {
     const key = supp.match_key;
@@ -22,30 +72,73 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
       supplementalMap.set(key, supp);
     }
     
-    // Also try email-only match
+    // Email lookup
     if (supp.email_1) {
-      supplementalMap.set(supp.email_1.toLowerCase(), supp);
+      supplementalEmailMap.set(supp.email_1.toLowerCase(), supp);
+    }
+    
+    // Phone lookup
+    if (supp.phone_1) {
+      const normalizedPhone = normalizePhone(supp.phone_1);
+      if (normalizedPhone) {
+        supplementalPhoneMap.set(normalizedPhone, supp);
+      }
+    }
+    
+    // Name lookup (for fuzzy matching)
+    if (supp.first_name && supp.last_name) {
+      const normalizedName = normalizeName(`${supp.first_name} ${supp.last_name}`);
+      if (!supplementalNameMap.has(normalizedName)) {
+        supplementalNameMap.set(normalizedName, supp);
+      }
     }
   });
 
-  // Merge data into contacts
+  // Merge data into contacts with improved matching
   const mergedContacts = baseContacts.map(contact => {
-    // Try to find matching supplemental data
+    let supplemental = null;
+    
+    // Method 1: Try exact match key (first name + last name + email)
     const matchKey = createMatchKey(
       contact.first_name, 
       contact.last_name, 
       contact.email_1, 
       contact.email_2
     );
+    supplemental = supplementalMap.get(matchKey);
     
-    let supplemental = supplementalMap.get(matchKey);
-    
-    // Try email-only match if not found
+    // Method 2: Try email-only match
     if (!supplemental && contact.email_1) {
-      supplemental = supplementalMap.get(contact.email_1.toLowerCase());
+      supplemental = supplementalEmailMap.get(contact.email_1.toLowerCase());
     }
     if (!supplemental && contact.email) {
-      supplemental = supplementalMap.get(contact.email.toLowerCase());
+      supplemental = supplementalEmailMap.get(contact.email.toLowerCase());
+    }
+    
+    // Method 3: Try phone number match
+    if (!supplemental && contact.phone_1) {
+      const normalizedPhone = normalizePhone(contact.phone_1);
+      if (normalizedPhone) {
+        supplemental = supplementalPhoneMap.get(normalizedPhone);
+      }
+    }
+    
+    // Method 4: Try fuzzy name matching (for typos)
+    if (!supplemental && contact.first_name && contact.last_name) {
+      const contactName = normalizeName(`${contact.first_name} ${contact.last_name}`);
+      
+      // Try exact match first
+      supplemental = supplementalNameMap.get(contactName);
+      
+      // Try fuzzy match if exact match fails
+      if (!supplemental) {
+        for (const [normalizedName, supp] of supplementalNameMap.entries()) {
+          if (fuzzyMatchNames(contactName, normalizedName)) {
+            supplemental = supp;
+            break;
+          }
+        }
+      }
     }
 
     // Merge supplemental data if found
@@ -112,8 +205,11 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
   // Track estimate linking stats
   const estimateLinkingStats = {
     linkedByContactId: 0,
+    linkedByEmail: 0,
+    linkedByPhone: 0,
     linkedByNameMatch: 0,
     linkedByCrmTags: 0,
+    linkedByAddress: 0,
     orphaned: 0,
     total: estimates.length
   };
@@ -122,16 +218,69 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
   const jobsiteLinkingStats = {
     linkedByContactId: 0,
     linkedByNameMatch: 0,
+    linkedByAddress: 0,
+    linkedByJobsiteName: 0,
     orphaned: 0,
     total: jobsites.length
   };
 
-  // First pass: Link estimates to accounts and track which method was used
+  // Helper to normalize addresses for matching (if not already defined)
+  const normalizeAddress = (address) => {
+    if (!address) return '';
+    return address.toLowerCase()
+      .trim()
+      .replace(/[.,#]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\b(street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|way|lane|ln)\b/gi, '')
+      .trim();
+  };
+
+  // Create lookup maps for faster matching
+  const accountNameMap = new Map(); // normalized name -> account
+  const accountPhoneMap = new Map(); // normalized phone -> account
+  const accountAddressMap = new Map(); // normalized address -> account
+  const contactEmailMap = new Map(); // email -> contact
+  const contactPhoneMap = new Map(); // normalized phone -> contact
+
+  accountsArray.forEach(account => {
+    if (account.name) {
+      const normalized = normalizeName(account.name);
+      if (!accountNameMap.has(normalized)) {
+        accountNameMap.set(normalized, account);
+      }
+    }
+    // Store account address for matching
+    if (account.address_1) {
+      const normalized = normalizeAddress(account.address_1);
+      if (normalized && !accountAddressMap.has(normalized)) {
+        accountAddressMap.set(normalized, account);
+      }
+    }
+  });
+
+  mergedContacts.forEach(contact => {
+    // Map emails to contacts
+    if (contact.email_1) {
+      contactEmailMap.set(contact.email_1.toLowerCase(), contact);
+    }
+    if (contact.email) {
+      contactEmailMap.set(contact.email.toLowerCase(), contact);
+    }
+    // Map phones to contacts
+    if (contact.phone_1) {
+      const normalized = normalizePhone(contact.phone_1);
+      if (normalized) {
+        contactPhoneMap.set(normalized, contact);
+      }
+    }
+  });
+
+  // First pass: Link estimates to accounts with improved matching
   const estimatesWithAccountId = estimates.map(estimate => {
     let linkedAccountId = null;
     let linkMethod = null;
 
-    // Method 1: Match by contact ID (most reliable)
+    // Method 1: Match by contact ID (most reliable - ID-based)
     if (estimate.lmn_contact_id) {
       const contact = mergedContacts.find(c => c.lmn_contact_id === estimate.lmn_contact_id);
       if (contact && contact.account_id) {
@@ -141,28 +290,80 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
       }
     }
 
-    // Method 2: Fallback - Match by contact name matching account name
-    if (!linkedAccountId && estimate.contact_name) {
-      const estimateContactName = estimate.contact_name.toLowerCase().trim();
-      for (const account of accountsArray) {
-        if (account.name && account.name.toLowerCase().trim() === estimateContactName) {
-          linkedAccountId = account.id;
-          linkMethod = 'name_match';
-          estimateLinkingStats.linkedByNameMatch++;
-          break;
+    // Method 2: Match by email -> contact -> account
+    if (!linkedAccountId && estimate.email) {
+      const contact = contactEmailMap.get(estimate.email.toLowerCase());
+      if (contact && contact.account_id) {
+        linkedAccountId = contact.account_id;
+        linkMethod = 'email_to_contact';
+        estimateLinkingStats.linkedByEmail++;
+      }
+    }
+
+    // Method 3: Match by phone -> contact -> account
+    if (!linkedAccountId && estimate.phone_1) {
+      const normalizedPhone = normalizePhone(estimate.phone_1);
+      if (normalizedPhone) {
+        const contact = contactPhoneMap.get(normalizedPhone);
+        if (contact && contact.account_id) {
+          linkedAccountId = contact.account_id;
+          linkMethod = 'phone_to_contact';
+          estimateLinkingStats.linkedByPhone++;
         }
       }
     }
 
-    // Method 3: Fallback - Match via CRM tags
+    // Method 4: Match by contact name matching account name (fuzzy)
+    if (!linkedAccountId && estimate.contact_name) {
+      const estimateContactName = normalizeName(estimate.contact_name);
+      
+      // Try exact match first
+      let matchedAccount = accountNameMap.get(estimateContactName);
+      
+      // Try fuzzy match if exact match fails
+      if (!matchedAccount) {
+        for (const [normalizedName, account] of accountNameMap.entries()) {
+          if (fuzzyMatchNames(estimateContactName, normalizedName)) {
+            matchedAccount = account;
+            break;
+          }
+        }
+      }
+      
+      if (matchedAccount) {
+        linkedAccountId = matchedAccount.id;
+        linkMethod = 'name_match_fuzzy';
+        estimateLinkingStats.linkedByNameMatch++;
+      }
+    }
+
+    // Method 5: Match via CRM tags (contains check)
     if (!linkedAccountId && estimate.crm_tags) {
       const crmTagsLower = estimate.crm_tags.toLowerCase();
       for (const account of accountsArray) {
-        if (account.lmn_crm_id && crmTagsLower.includes(account.lmn_crm_id.toLowerCase())) {
-          linkedAccountId = account.id;
-          linkMethod = 'crm_tags';
-          estimateLinkingStats.linkedByCrmTags++;
-          break;
+        if (account.lmn_crm_id) {
+          const crmIdLower = account.lmn_crm_id.toLowerCase();
+          if (crmTagsLower.includes(crmIdLower) || crmIdLower.includes(crmTagsLower)) {
+            linkedAccountId = account.id;
+            linkMethod = 'crm_tags';
+            estimateLinkingStats.linkedByCrmTags++;
+            break;
+          }
+        }
+      }
+    }
+
+    // Method 6: Match by address (if estimate has address)
+    if (!linkedAccountId && estimate.address) {
+      const normalizedEstAddress = normalizeAddress(estimate.address);
+      if (normalizedEstAddress) {
+        for (const [normalizedAddr, account] of accountAddressMap.entries()) {
+          if (fuzzyMatchNames(normalizedEstAddress, normalizedAddr)) {
+            linkedAccountId = account.id;
+            linkMethod = 'address_match';
+            estimateLinkingStats.linkedByAddress++;
+            break;
+          }
         }
       }
     }
@@ -180,12 +381,12 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
     };
   });
 
-  // Link jobsites to accounts (similar logic to estimates)
+  // Link jobsites to accounts with improved matching
   const jobsitesWithAccountId = jobsites.map(jobsite => {
     let linkedAccountId = null;
     let linkMethod = null;
 
-    // Method 1: Match by contact ID (most reliable)
+    // Method 1: Match by contact ID (most reliable - ID-based)
     if (jobsite.lmn_contact_id) {
       const contact = mergedContacts.find(c => c.lmn_contact_id === jobsite.lmn_contact_id);
       if (contact && contact.account_id) {
@@ -195,14 +396,63 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
       }
     }
 
-    // Method 2: Fallback - Match by contact name matching account name
+    // Method 2: Match by contact name matching account name (fuzzy)
     if (!linkedAccountId && jobsite.contact_name) {
-      const jobsiteContactName = jobsite.contact_name.toLowerCase().trim();
-      for (const account of accountsArray) {
-        if (account.name && account.name.toLowerCase().trim() === jobsiteContactName) {
+      const jobsiteContactName = normalizeName(jobsite.contact_name);
+      
+      // Try exact match first
+      let matchedAccount = accountNameMap.get(jobsiteContactName);
+      
+      // Try fuzzy match if exact match fails
+      if (!matchedAccount) {
+        for (const [normalizedName, account] of accountNameMap.entries()) {
+          if (fuzzyMatchNames(jobsiteContactName, normalizedName)) {
+            matchedAccount = account;
+            break;
+          }
+        }
+      }
+      
+      if (matchedAccount) {
+        linkedAccountId = matchedAccount.id;
+        linkMethod = 'name_match_fuzzy';
+        jobsiteLinkingStats.linkedByNameMatch++;
+      }
+    }
+
+    // Method 3: Match by address (jobsites have addresses)
+    if (!linkedAccountId && jobsite.address_1) {
+      const normalizedJobsiteAddress = normalizeAddress(jobsite.address_1);
+      if (normalizedJobsiteAddress) {
+        // Try exact match first
+        let matchedAccount = accountAddressMap.get(normalizedJobsiteAddress);
+        
+        // Try fuzzy match if exact match fails
+        if (!matchedAccount) {
+          for (const [normalizedAddr, account] of accountAddressMap.entries()) {
+            if (fuzzyMatchNames(normalizedJobsiteAddress, normalizedAddr)) {
+              matchedAccount = account;
+              break;
+            }
+          }
+        }
+        
+        if (matchedAccount) {
+          linkedAccountId = matchedAccount.id;
+          linkMethod = 'address_match';
+          jobsiteLinkingStats.linkedByAddress++;
+        }
+      }
+    }
+
+    // Method 4: Match by jobsite name containing account name
+    if (!linkedAccountId && jobsite.name) {
+      const jobsiteName = normalizeName(jobsite.name);
+      for (const [normalizedName, account] of accountNameMap.entries()) {
+        if (jobsiteName.includes(normalizedName) || normalizedName.includes(jobsiteName)) {
           linkedAccountId = account.id;
-          linkMethod = 'name_match';
-          jobsiteLinkingStats.linkedByNameMatch++;
+          linkMethod = 'jobsite_name_match';
+          jobsiteLinkingStats.linkedByJobsiteName++;
           break;
         }
       }
@@ -271,24 +521,35 @@ export function mergeContactData(contactsExportData, leadsListData, estimatesDat
       // Estimate linking stats
       estimateLinking: {
         total: estimateLinkingStats.total,
-        linked: estimateLinkingStats.linkedByContactId + estimateLinkingStats.linkedByNameMatch + estimateLinkingStats.linkedByCrmTags,
+        linked: estimateLinkingStats.linkedByContactId + estimateLinkingStats.linkedByEmail + 
+                estimateLinkingStats.linkedByPhone + estimateLinkingStats.linkedByNameMatch + 
+                estimateLinkingStats.linkedByCrmTags + estimateLinkingStats.linkedByAddress,
         orphaned: estimateLinkingStats.orphaned,
         linkedByContactId: estimateLinkingStats.linkedByContactId,
+        linkedByEmail: estimateLinkingStats.linkedByEmail,
+        linkedByPhone: estimateLinkingStats.linkedByPhone,
         linkedByNameMatch: estimateLinkingStats.linkedByNameMatch,
         linkedByCrmTags: estimateLinkingStats.linkedByCrmTags,
+        linkedByAddress: estimateLinkingStats.linkedByAddress,
         linkRate: estimateLinkingStats.total > 0
-          ? Math.round(((estimateLinkingStats.linkedByContactId + estimateLinkingStats.linkedByNameMatch + estimateLinkingStats.linkedByCrmTags) / estimateLinkingStats.total) * 100)
+          ? Math.round(((estimateLinkingStats.linkedByContactId + estimateLinkingStats.linkedByEmail + 
+                         estimateLinkingStats.linkedByPhone + estimateLinkingStats.linkedByNameMatch + 
+                         estimateLinkingStats.linkedByCrmTags + estimateLinkingStats.linkedByAddress) / estimateLinkingStats.total) * 100)
           : 0
       },
       // Jobsite linking stats
       jobsiteLinking: {
         total: jobsiteLinkingStats.total,
-        linked: jobsiteLinkingStats.linkedByContactId + jobsiteLinkingStats.linkedByNameMatch,
+        linked: jobsiteLinkingStats.linkedByContactId + jobsiteLinkingStats.linkedByNameMatch + 
+                jobsiteLinkingStats.linkedByAddress + jobsiteLinkingStats.linkedByJobsiteName,
         orphaned: jobsiteLinkingStats.orphaned,
         linkedByContactId: jobsiteLinkingStats.linkedByContactId,
         linkedByNameMatch: jobsiteLinkingStats.linkedByNameMatch,
+        linkedByAddress: jobsiteLinkingStats.linkedByAddress,
+        linkedByJobsiteName: jobsiteLinkingStats.linkedByJobsiteName,
         linkRate: jobsiteLinkingStats.total > 0
-          ? Math.round(((jobsiteLinkingStats.linkedByContactId + jobsiteLinkingStats.linkedByNameMatch) / jobsiteLinkingStats.total) * 100)
+          ? Math.round(((jobsiteLinkingStats.linkedByContactId + jobsiteLinkingStats.linkedByNameMatch + 
+                         jobsiteLinkingStats.linkedByAddress + jobsiteLinkingStats.linkedByJobsiteName) / jobsiteLinkingStats.total) * 100)
           : 0
       }
     }

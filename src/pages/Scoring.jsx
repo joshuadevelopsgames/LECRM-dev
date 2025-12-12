@@ -276,7 +276,7 @@ export default function Scoring() {
                     Manage ICP Template
                   </Button>
                 </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingTemplate ? 'Edit ICP Template' : 'Create ICP Template'}</DialogTitle>
             </DialogHeader>
@@ -432,6 +432,7 @@ export default function Scoring() {
             </div>
           </DialogContent>
         </Dialog>
+            )}
           </div>
         </div>
       </TutorialTooltip>

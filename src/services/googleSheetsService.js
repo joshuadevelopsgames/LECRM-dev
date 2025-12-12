@@ -35,19 +35,41 @@ async function fetchSheetData(sheetName) {
   // Fallback: Try public CSV export (requires sheet to be public)
   try {
     const csvUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-    console.log(`Fetching ${sheetName} from Google Sheet...`);
+    console.log(`📥 Fetching ${sheetName} from Google Sheet via CSV...`);
+    console.log(`   URL: ${csvUrl}`);
+    
     const response = await fetch(csvUrl);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${sheetName} CSV: ${response.statusText}`);
+      const errorText = await response.text().catch(() => '');
+      console.error(`❌ Failed to fetch ${sheetName} CSV:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText.substring(0, 200)
+      });
+      throw new Error(`Failed to fetch ${sheetName} CSV: ${response.status} ${response.statusText}`);
     }
     
     const csvText = await response.text();
+    
+    if (!csvText || csvText.trim().length === 0) {
+      console.warn(`⚠️ Empty response for ${sheetName} - sheet might not exist or be empty`);
+      return [];
+    }
+    
     const parsed = parseCSV(csvText);
     console.log(`✅ Loaded ${parsed.length} rows from ${sheetName} tab`);
+    
+    if (parsed.length > 0) {
+      console.log(`   First row (headers): ${parsed[0].slice(0, 5).join(', ')}...`);
+    }
+    
     return parsed;
   } catch (error) {
     console.error(`❌ Error fetching ${sheetName} via CSV:`, error);
+    console.error(`   Sheet ID: ${GOOGLE_SHEET_ID}`);
+    console.error(`   Sheet Name: ${sheetName}`);
+    console.error(`   Make sure the sheet is public and the tab name matches exactly`);
     return [];
   }
 }
@@ -288,6 +310,8 @@ async function parseAccounts() {
   // Also parse imported accounts tab if it exists
   try {
     const importedAccounts = await parseImportedAccounts();
+    console.log(`📊 Merging ${importedAccounts.length} imported accounts with ${accountMap.size} accounts from contacts...`);
+    
     importedAccounts.forEach(account => {
       // Use lmn_crm_id or id as key for upsert
       const key = account.lmn_crm_id || account.id;
@@ -298,24 +322,120 @@ async function parseAccounts() {
         } else {
           accountMap.set(key, account);
         }
+      } else {
+        console.warn('⚠️ Imported account missing ID (lmn_crm_id or id):', account.name || 'Unknown');
       }
     });
+    
+    console.log(`✅ Total accounts after merge: ${accountMap.size}`);
   } catch (error) {
     // Imported Accounts tab might not exist yet, that's okay
-    console.log('No Imported Accounts tab found (this is normal if no imports have been done yet)');
+    console.log('ℹ️ No Imported Accounts tab found (this is normal if no imports have been done yet)');
+    console.log('   Error:', error.message);
   }
   
-  return Array.from(accountMap.values());
+  const finalAccounts = Array.from(accountMap.values());
+  console.log(`📊 parseAccounts() returning ${finalAccounts.length} total accounts`);
+  return finalAccounts;
+}
+
+/**
+ * Parse accounts from "All Data" tab as fallback
+ */
+async function parseAccountsFromAllData() {
+  console.log('📊 Parsing accounts from "All Data" tab (fallback)...');
+  try {
+    const rows = await fetchSheetData('All Data');
+    console.log(`   Fetched ${rows?.length || 0} rows from "All Data" tab`);
+    
+    if (!rows || rows.length < 2) {
+      console.warn('⚠️ All Data tab has less than 2 rows');
+      return [];
+    }
+  
+  const headers = rows[0];
+  const accountMap = new Map();
+  
+  // Extract unique accounts from All Data tab
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    
+    const accountId = row[headers.indexOf('LMN CRM ID')] || row[headers.indexOf('Account ID')];
+    if (accountId && !accountMap.has(accountId)) {
+      const account = {
+        id: row[headers.indexOf('Account ID')] || accountId,
+        lmn_crm_id: accountId,
+        name: row[headers.indexOf('Account Name')] || '',
+        account_type: row[headers.indexOf('Account Type')] || '',
+        status: row[headers.indexOf('Status')] || 'active',
+        classification: row[headers.indexOf('Classification')] || '',
+        revenue_segment: row[headers.indexOf('Revenue Segment')] || '',
+        annual_revenue: row[headers.indexOf('Annual Revenue')] || '',
+        organization_score: row[headers.indexOf('Organization Score')] || null,
+        tags: row[headers.indexOf('Account Tags')] || '',
+        address_1: row[headers.indexOf('Account Address 1')] || '',
+        address_2: row[headers.indexOf('Account Address 2')] || '',
+        city: row[headers.indexOf('Account City')] || '',
+        state: row[headers.indexOf('Account State')] || '',
+        postal_code: row[headers.indexOf('Account Postal Code')] || '',
+        country: row[headers.indexOf('Account Country')] || '',
+        source: row[headers.indexOf('Account Source')] || '',
+        created_date: row[headers.indexOf('Account Created Date')] || '',
+        last_interaction_date: row[headers.indexOf('Last Interaction Date')] || '',
+        renewal_date: row[headers.indexOf('Renewal Date')] || '',
+        archived: row[headers.indexOf('Account Archived')] || false
+      };
+      
+      // Parse tags if it's a string
+      if (typeof account.tags === 'string' && account.tags) {
+        account.tags = account.tags.split(',').map(t => t.trim()).filter(Boolean);
+      }
+      
+      accountMap.set(accountId, account);
+    }
+  }
+  
+    const accounts = Array.from(accountMap.values());
+    console.log(`✅ Parsed ${accounts.length} unique accounts from "All Data" tab`);
+    return accounts;
+  } catch (error) {
+    console.error('❌ Error parsing accounts from "All Data" tab:', error);
+    return [];
+  }
 }
 
 /**
  * Parse imported accounts from "Imported Accounts" tab
+ * Falls back to "All Data" tab if individual tab is empty
  */
 async function parseImportedAccounts() {
+  console.log('📊 Parsing Imported Accounts...');
   const rows = await fetchSheetData('Imported Accounts');
-  if (!rows || rows.length < 2) return [];
+  console.log(`   Fetched ${rows?.length || 0} rows from Imported Accounts tab`);
+  
+  // Check if we have less than 2 rows (header + at least 1 data row)
+  if (!rows || rows.length === 0 || rows.length < 2) {
+    console.warn('⚠️ Imported Accounts tab is empty or has less than 2 rows');
+    console.log('   🔄 Trying fallback: reading from "All Data" tab...');
+    try {
+      // Fallback to All Data tab
+      const fallbackAccounts = await parseAccountsFromAllData();
+      if (fallbackAccounts.length > 0) {
+        console.log(`   ✅ Fallback successful: Found ${fallbackAccounts.length} accounts in "All Data" tab`);
+        return fallbackAccounts;
+      } else {
+        console.warn('   ⚠️ Fallback also returned no accounts');
+        return [];
+      }
+    } catch (error) {
+      console.error('   ❌ Error reading from "All Data" tab fallback:', error);
+      return [];
+    }
+  }
   
   const headers = rows[0];
+  console.log(`   Headers found: ${headers.slice(0, 5).join(', ')}...`);
   const accounts = [];
   
   for (let i = 1; i < rows.length; i++) {
@@ -371,6 +491,7 @@ async function parseImportedAccounts() {
     }
   }
   
+  console.log(`✅ Parsed ${accounts.length} accounts from Imported Accounts tab`);
   return accounts;
 }
 
@@ -559,11 +680,97 @@ async function parseContactsFromTemplate() {
 /**
  * Parse imported contacts from "Imported Contacts" tab
  */
-async function parseImportedContacts() {
-  const rows = await fetchSheetData('Imported Contacts');
-  if (!rows || rows.length < 2) return [];
+/**
+ * Parse contacts from "All Data" tab as fallback
+ */
+async function parseContactsFromAllData() {
+  console.log('📊 Parsing contacts from "All Data" tab (fallback)...');
+  try {
+    const rows = await fetchSheetData('All Data');
+    console.log(`   Fetched ${rows?.length || 0} rows from "All Data" tab`);
+    
+    if (!rows || rows.length < 2) {
+      console.warn('⚠️ All Data tab has less than 2 rows');
+      return [];
+    }
   
   const headers = rows[0];
+  const contactMap = new Map();
+  
+  // Extract unique contacts from All Data tab
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+    
+    const contactId = row[headers.indexOf('LMN Contact ID')] || row[headers.indexOf('Contact ID')];
+    if (contactId && !contactMap.has(contactId)) {
+      const contact = {
+        id: row[headers.indexOf('Contact ID')] || contactId,
+        lmn_contact_id: contactId,
+        account_id: row[headers.indexOf('Account ID (Contact)')] || row[headers.indexOf('LMN CRM ID')] || '',
+        account_name: row[headers.indexOf('Account Name (Contact)')] || row[headers.indexOf('Account Name')] || '',
+        first_name: row[headers.indexOf('First Name')] || '',
+        last_name: row[headers.indexOf('Last Name')] || '',
+        email: row[headers.indexOf('Email')] || row[headers.indexOf('Email 1')] || '',
+        email_1: row[headers.indexOf('Email 1')] || '',
+        email_2: row[headers.indexOf('Email 2')] || '',
+        phone: row[headers.indexOf('Phone')] || row[headers.indexOf('Phone 1')] || '',
+        phone_1: row[headers.indexOf('Phone 1')] || '',
+        phone_2: row[headers.indexOf('Phone 2')] || '',
+        position: row[headers.indexOf('Position')] || '',
+        title: row[headers.indexOf('Title')] || '',
+        role: row[headers.indexOf('Role')] || '',
+        primary_contact: row[headers.indexOf('Primary Contact')] || false,
+        do_not_email: row[headers.indexOf('Do Not Email')] || false,
+        do_not_mail: row[headers.indexOf('Do Not Mail')] || false,
+        do_not_call: row[headers.indexOf('Do Not Call')] || false,
+        referral_source: row[headers.indexOf('Referral Source')] || '',
+        notes: row[headers.indexOf('Contact Notes')] || '',
+        source: row[headers.indexOf('Contact Source')] || '',
+        created_date: row[headers.indexOf('Contact Created Date')] || '',
+        archived: row[headers.indexOf('Contact Archived')] || false
+      };
+      
+      contactMap.set(contactId, contact);
+    }
+  }
+  
+    const contacts = Array.from(contactMap.values());
+    console.log(`✅ Parsed ${contacts.length} unique contacts from "All Data" tab`);
+    return contacts;
+  } catch (error) {
+    console.error('❌ Error parsing contacts from "All Data" tab:', error);
+    return [];
+  }
+}
+
+async function parseImportedContacts() {
+  console.log('📊 Parsing Imported Contacts...');
+  const rows = await fetchSheetData('Imported Contacts');
+  console.log(`   Fetched ${rows?.length || 0} rows from Imported Contacts tab`);
+  
+  // Check if we have less than 2 rows (header + at least 1 data row)
+  if (!rows || rows.length === 0 || rows.length < 2) {
+    console.warn('⚠️ Imported Contacts tab is empty or has less than 2 rows');
+    console.log('   🔄 Trying fallback: reading from "All Data" tab...');
+    try {
+      // Fallback to All Data tab
+      const fallbackContacts = await parseContactsFromAllData();
+      if (fallbackContacts.length > 0) {
+        console.log(`   ✅ Fallback successful: Found ${fallbackContacts.length} contacts in "All Data" tab`);
+        return fallbackContacts;
+      } else {
+        console.warn('   ⚠️ Fallback also returned no contacts');
+        return [];
+      }
+    } catch (error) {
+      console.error('   ❌ Error reading from "All Data" tab fallback:', error);
+      return [];
+    }
+  }
+  
+  const headers = rows[0];
+  console.log(`   Headers found: ${headers.slice(0, 5).join(', ')}...`);
   const contacts = [];
   
   for (let i = 1; i < rows.length; i++) {
@@ -616,9 +823,12 @@ async function parseImportedContacts() {
     
     if (contact.id || contact.lmn_contact_id || contact.email) {
       contacts.push(contact);
+    } else {
+      console.warn('⚠️ Contact missing required identifier (id, lmn_contact_id, or email):', contact);
     }
   }
   
+  console.log(`✅ Parsed ${contacts.length} contacts from Imported Contacts tab`);
   return contacts;
 }
 
@@ -1127,6 +1337,34 @@ export async function writeToGoogleSheet(entityType, records) {
     
     if (result.success) {
       console.log(`✅ Successfully wrote ${result.result.total} ${entityType} to Google Sheet (${result.result.created} created, ${result.result.updated} updated)`);
+      
+      // Verify the write by reading back (optional, can be disabled for performance)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔍 Verifying write by reading back ${entityType}...`);
+        try {
+          // Wait a moment for Google Sheets to process
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Try to read back the data
+          const sheetName = entityType === 'accounts' ? 'Imported Accounts' : 
+                           entityType === 'contacts' ? 'Imported Contacts' :
+                           entityType === 'estimates' ? 'Imported Estimates' :
+                           entityType === 'jobsites' ? 'Imported Jobsites' : '';
+          
+          if (sheetName) {
+            const verifyRows = await fetchSheetData(sheetName);
+            const dataRowCount = verifyRows && verifyRows.length > 1 ? verifyRows.length - 1 : 0;
+            console.log(`   ✅ Verification: ${dataRowCount} rows found in ${sheetName} tab`);
+            
+            if (dataRowCount === 0 && entityType === 'accounts' || entityType === 'contacts') {
+              console.warn(`   ⚠️ Individual tab is empty, but data should be in "All Data" tab`);
+            }
+          }
+        } catch (verifyError) {
+          console.warn('   ⚠️ Could not verify write:', verifyError.message);
+        }
+      }
+      
       // Clear cache to force refresh on next read
       sheetDataCache = null;
       cacheTimestamp = null;

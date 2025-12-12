@@ -133,10 +133,47 @@ function doPost(e) {
 /**
  * Handle GET requests (for testing)
  * Returns status without requiring authentication (safe for health checks)
+ * Also supports rebuild action: ?action=rebuild-compilation
  */
 function doGet(e) {
   const secretToken = getSecretToken();
   const isConfigured = !!secretToken;
+  
+  // Check for rebuild action
+  const action = e.parameter.action;
+  if (action === 'rebuild-compilation') {
+    try {
+      rebuildCompilationTab();
+      return createResponse({
+        success: true,
+        message: 'Compilation tab rebuilt successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      return createResponse({
+        success: false,
+        error: error.toString(),
+        timestamp: new Date().toISOString()
+      }, 500);
+    }
+  }
+  
+  if (action === 'extract-from-all-data') {
+    try {
+      extractDataFromAllDataTab();
+      return createResponse({
+        success: true,
+        message: 'Data extracted from All Data tab to individual tabs successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      return createResponse({
+        success: false,
+        error: error.toString(),
+        timestamp: new Date().toISOString()
+      }, 500);
+    }
+  }
   
   return createResponse({
     success: true,
@@ -147,6 +184,10 @@ function doGet(e) {
       note: isConfigured 
         ? 'Authentication is enabled. POST requests require a valid token.' 
         : 'WARNING: Authentication not configured. Set SECRET_TOKEN in Script Properties!'
+    },
+    actions: {
+      rebuildCompilation: 'Add ?action=rebuild-compilation to rebuild the All Data tab',
+      extractFromAllData: 'Add ?action=extract-from-all-data to extract data from All Data tab to individual tabs'
     }
   });
 }
@@ -156,28 +197,54 @@ function doGet(e) {
  */
 function writeToSheet(entityType, records) {
   const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  const sheetName = getSheetName(entityType);
+  
+  Logger.log(`📝 Writing ${records.length} ${entityType} records to ${sheetName} tab...`);
   
   // Write to individual entity tab
-  let sheet = spreadsheet.getSheetByName(getSheetName(entityType));
+  let sheet = spreadsheet.getSheetByName(sheetName);
   
   // Create sheet if it doesn't exist
   if (!sheet) {
-    sheet = spreadsheet.insertSheet(getSheetName(entityType));
+    Logger.log(`   Creating new sheet: ${sheetName}`);
+    sheet = spreadsheet.insertSheet(sheetName);
     const headers = getHeaders(entityType);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     sheet.setFrozenRows(1);
+    Logger.log(`   Created sheet with ${headers.length} headers`);
+  } else {
+    Logger.log(`   Sheet ${sheetName} already exists`);
   }
   
   // Also update the compilation tab for accounts and contacts
   if (entityType === 'accounts' || entityType === 'contacts') {
+    Logger.log(`   Updating compilation tab...`);
     updateCompilationTab(spreadsheet, entityType, records);
   }
   
   // Get existing data
-  const existingData = sheet.getDataRange().getValues();
-  const headers = existingData[0];
-  const dataRows = existingData.slice(1);
+  let existingData = sheet.getDataRange().getValues();
+  Logger.log(`   Existing data: ${existingData.length} rows (including header)`);
+  
+  let headers, dataRows;
+  
+  if (existingData.length === 0) {
+    Logger.log(`   ⚠️ Sheet is empty, creating headers...`);
+    headers = getHeaders(entityType);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    // Re-fetch after creating headers
+    existingData = sheet.getDataRange().getValues();
+    headers = existingData[0];
+    dataRows = [];
+  } else {
+    headers = existingData[0];
+    dataRows = existingData.slice(1);
+  }
+  
+  Logger.log(`   Headers: ${headers.length}, Existing data rows: ${dataRows.length}`);
   
   // Create lookup maps for upsert
   const lookupFields = getLookupFields(entityType);
@@ -253,16 +320,35 @@ function writeToSheet(entityType, records) {
   
   // Append new rows
   if (newRows.length > 0) {
+    Logger.log(`   Appending ${newRows.length} new rows to sheet...`);
     const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow + 1, 1, newRows.length, headers.length).setValues(newRows);
+    Logger.log(`   Last row before append: ${lastRow}`);
+    try {
+      sheet.getRange(lastRow + 1, 1, newRows.length, headers.length).setValues(newRows);
+      Logger.log(`   ✅ Successfully appended ${newRows.length} rows`);
+    } catch (error) {
+      Logger.log(`   ❌ Error appending rows: ${error.toString()}`);
+      throw error;
+    }
+  } else {
+    Logger.log(`   No new rows to append (all were updates)`);
   }
   
   // Sort the sheet by the appropriate column
   const lastRow = sheet.getLastRow();
+  Logger.log(`   Final row count: ${lastRow}`);
   if (lastRow > 1 && sortColumn > 0) {
-    sheet.getRange(2, 1, lastRow - 1, headers.length)
-      .sort({column: sortColumn, ascending: true});
+    try {
+      sheet.getRange(2, 1, lastRow - 1, headers.length)
+        .sort({column: sortColumn, ascending: true});
+      Logger.log(`   ✅ Sorted sheet by column ${sortColumn}`);
+    } catch (error) {
+      Logger.log(`   ⚠️ Error sorting sheet: ${error.toString()}`);
+      // Don't throw - sorting is not critical
+    }
   }
+  
+  Logger.log(`   ✅ Completed: ${created} created, ${updated} updated, ${records.length} total`);
   
   return {
     created,
@@ -293,6 +379,7 @@ function updateCompilationTab(spreadsheet, entityType, records) {
   const existingData = compilationSheet.getDataRange().getValues();
   const headers = existingData[0];
   const dataRows = existingData.slice(1);
+  const isCompilationEmpty = dataRows.length === 0;
   
   if (entityType === 'accounts') {
     // When accounts are updated, we need to update all rows for that account
@@ -302,31 +389,77 @@ function updateCompilationTab(spreadsheet, entityType, records) {
       if (key) accountMap.set(key, account);
     });
     
-    // Update all existing rows that match these accounts
-    dataRows.forEach((row, index) => {
-      const accountIdIndex = headers.indexOf('LMN CRM ID');
-      const accountId = row[accountIdIndex];
-      if (accountId && accountMap.has(accountId)) {
-        const account = accountMap.get(accountId);
-        const updatedRow = headers.map(header => {
-          const existingValue = row[headers.indexOf(header)];
-          const accountValue = getCompilationFieldValue(header, account, 'accounts');
-          // Keep contact fields, update account fields
-          if (header.startsWith('Account ') || header === 'Account ID' || header === 'LMN CRM ID' || 
-              header === 'Account Name' || header === 'Account Type' || header === 'Status' ||
-              header === 'Classification' || header === 'Revenue Segment' || header === 'Annual Revenue' ||
-              header === 'Organization Score' || header === 'Account Tags' || header === 'Account Address 1' ||
-              header === 'Account Address 2' || header === 'Account City' || header === 'Account State' ||
-              header === 'Account Postal Code' || header === 'Account Country' || header === 'Account Source' ||
-              header === 'Account Created Date' || header === 'Last Interaction Date' || 
-              header === 'Renewal Date' || header === 'Account Archived') {
-            return accountValue;
-          }
-          return existingValue;
-        });
-        compilationSheet.getRange(index + 2, 1, 1, headers.length).setValues([updatedRow]);
+    // If compilation tab is empty and we have contacts, create rows for all contacts with these accounts
+    // This handles the case where accounts are imported first
+    const contactsSheet = spreadsheet.getSheetByName('Imported Contacts');
+    if (contactsSheet && isCompilationEmpty) {
+      // Compilation tab is empty, create rows for all contacts
+      const contactData = contactsSheet.getDataRange().getValues();
+      if (contactData.length > 1) { // Has headers and at least one row
+        const contactHeaders = contactData[0];
+        const newRows = [];
+        
+        for (let i = 1; i < contactData.length; i++) {
+          const contactRow = contactData[i];
+          const contact = {};
+          contactHeaders.forEach((header, idx) => {
+            const fieldMap = getFieldMap('contacts');
+            const fieldName = fieldMap[header] || header.toLowerCase().replace(/\s+/g, '_');
+            contact[fieldName] = contactRow[idx];
+          });
+          
+          // Get account for this contact - try multiple fields
+          const accountId = contact.account_id || contact.lmn_crm_id || (contactHeaders.indexOf('Account ID') >= 0 ? contactRow[contactHeaders.indexOf('Account ID')] : null);
+          const account = accountId ? accountMap.get(accountId) : null;
+          
+          // Build compilation row
+          const row = headers.map(header => {
+            if (account) {
+              const accountValue = getCompilationFieldValue(header, account, 'accounts');
+              if (accountValue !== '') return accountValue;
+            }
+            return getCompilationFieldValue(header, contact, 'contacts');
+          });
+          
+          newRows.push(row);
+        }
+        
+        // Append all new rows
+        if (newRows.length > 0) {
+          const lastRow = compilationSheet.getLastRow();
+          compilationSheet.getRange(lastRow + 1, 1, newRows.length, headers.length).setValues(newRows);
+        }
       }
-    });
+    }
+    
+    // Always update existing rows that match these accounts (if compilation tab has data)
+    if (!isCompilationEmpty) {
+      // Update existing rows that match these accounts
+      dataRows.forEach((row, index) => {
+        const accountIdIndex = headers.indexOf('LMN CRM ID');
+        const accountId = row[accountIdIndex];
+        if (accountId && accountMap.has(accountId)) {
+          const account = accountMap.get(accountId);
+          const updatedRow = headers.map(header => {
+            const existingValue = row[headers.indexOf(header)];
+            const accountValue = getCompilationFieldValue(header, account, 'accounts');
+            // Keep contact fields, update account fields
+            if (header.startsWith('Account ') || header === 'Account ID' || header === 'LMN CRM ID' || 
+                header === 'Account Name' || header === 'Account Type' || header === 'Status' ||
+                header === 'Classification' || header === 'Revenue Segment' || header === 'Annual Revenue' ||
+                header === 'Organization Score' || header === 'Account Tags' || header === 'Account Address 1' ||
+                header === 'Account Address 2' || header === 'Account City' || header === 'Account State' ||
+                header === 'Account Postal Code' || header === 'Account Country' || header === 'Account Source' ||
+                header === 'Account Created Date' || header === 'Last Interaction Date' || 
+                header === 'Renewal Date' || header === 'Account Archived') {
+              return accountValue;
+            }
+            return existingValue;
+          });
+          compilationSheet.getRange(index + 2, 1, 1, headers.length).setValues([updatedRow]);
+        }
+      });
+    }
     
   } else if (entityType === 'contacts') {
     // For contacts, create/update rows (one row per contact with account info)
@@ -413,6 +546,247 @@ function updateCompilationTab(spreadsheet, entityType, records) {
   }
   
   return { created: 0, updated: 0 };
+}
+
+/**
+ * Debug function: List all sheets and their row counts
+ */
+function debugSheets() {
+  const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  const sheets = spreadsheet.getSheets();
+  Logger.log('=== SHEET DEBUG INFO ===');
+  Logger.log(`Total sheets: ${sheets.length}`);
+  Logger.log('');
+  sheets.forEach(sheet => {
+    const name = sheet.getName();
+    const rowCount = sheet.getLastRow();
+    const colCount = sheet.getLastColumn();
+    Logger.log(`Sheet: "${name}"`);
+    Logger.log(`  Rows: ${rowCount} (including header)`);
+    Logger.log(`  Columns: ${colCount}`);
+    if (rowCount > 1) {
+      const headers = sheet.getRange(1, 1, 1, colCount).getValues()[0];
+      Logger.log(`  Headers: ${headers.slice(0, 5).join(', ')}${headers.length > 5 ? '...' : ''}`);
+    }
+    Logger.log('');
+  });
+  Logger.log('=== END DEBUG INFO ===');
+}
+
+/**
+ * Extract data from "All Data" tab back to individual tabs
+ * Useful when "All Data" has data but individual tabs are empty
+ */
+function extractDataFromAllDataTab() {
+  const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  const allDataSheet = spreadsheet.getSheetByName('All Data');
+  
+  if (!allDataSheet) {
+    Logger.log('❌ "All Data" tab not found');
+    return;
+  }
+  
+  Logger.log('📊 Extracting data from "All Data" tab...');
+  
+  const allData = allDataSheet.getDataRange().getValues();
+  if (allData.length < 2) {
+    Logger.log('❌ "All Data" tab has no data rows');
+    return;
+  }
+  
+  const headers = allData[0];
+  const dataRows = allData.slice(1);
+  
+  Logger.log(`   Found ${dataRows.length} rows in "All Data" tab`);
+  
+  // Extract accounts
+  const accountMap = new Map();
+  const accountHeaders = getHeaders('accounts');
+  const accountFieldMap = getFieldMap('accounts');
+  
+  // Extract contacts
+  const contactMap = new Map();
+  const contactHeaders = getHeaders('contacts');
+  const contactFieldMap = getFieldMap('contacts');
+  
+  dataRows.forEach((row, index) => {
+    // Extract account data
+    const accountId = row[headers.indexOf('LMN CRM ID')] || row[headers.indexOf('Account ID')];
+    if (accountId && !accountMap.has(accountId)) {
+      const account = {};
+      accountHeaders.forEach(header => {
+        const fieldName = accountFieldMap[header];
+        if (fieldName) {
+          const headerIndex = headers.indexOf(header.startsWith('Account ') ? header : `Account ${header}`);
+          if (headerIndex >= 0) {
+            account[fieldName] = row[headerIndex];
+          }
+        }
+      });
+      // Also get direct account fields
+      account.lmn_crm_id = accountId;
+      account.id = row[headers.indexOf('Account ID')] || accountId;
+      account.name = row[headers.indexOf('Account Name')] || '';
+      accountMap.set(accountId, account);
+    }
+    
+    // Extract contact data
+    const contactId = row[headers.indexOf('LMN Contact ID')] || row[headers.indexOf('Contact ID')];
+    if (contactId && !contactMap.has(contactId)) {
+      const contact = {};
+      contactHeaders.forEach(header => {
+        const fieldName = contactFieldMap[header];
+        if (fieldName && fieldName !== 'Contact Name') { // Contact Name is computed
+          const headerIndex = headers.indexOf(header);
+          if (headerIndex >= 0) {
+            contact[fieldName] = row[headerIndex];
+          }
+        }
+      });
+      // Also get direct contact fields
+      contact.lmn_contact_id = contactId;
+      contact.id = row[headers.indexOf('Contact ID')] || contactId;
+      contact.account_id = accountId;
+      contact.account_name = row[headers.indexOf('Account Name')] || '';
+      contact.first_name = row[headers.indexOf('First Name')] || '';
+      contact.last_name = row[headers.indexOf('Last Name')] || '';
+      contactMap.set(contactId, contact);
+    }
+  });
+  
+  Logger.log(`   Extracted ${accountMap.size} unique accounts and ${contactMap.size} unique contacts`);
+  
+  // Write accounts to Imported Accounts tab
+  if (accountMap.size > 0) {
+    Logger.log('   Writing accounts to Imported Accounts tab...');
+    const accountsArray = Array.from(accountMap.values());
+    const result = writeToSheet('accounts', accountsArray);
+    Logger.log(`   ✅ Wrote ${result.total} accounts (${result.created} created, ${result.updated} updated)`);
+  }
+  
+  // Write contacts to Imported Contacts tab
+  if (contactMap.size > 0) {
+    Logger.log('   Writing contacts to Imported Contacts tab...');
+    const contactsArray = Array.from(contactMap.values());
+    const result = writeToSheet('contacts', contactsArray);
+    Logger.log(`   ✅ Wrote ${result.total} contacts (${result.created} created, ${result.updated} updated)`);
+  }
+  
+  Logger.log('✅ Extraction complete!');
+}
+
+/**
+ * Rebuild the compilation tab from scratch using all existing data
+ * Useful for fixing the compilation tab if it's empty or out of sync
+ */
+function rebuildCompilationTab() {
+  const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  
+  // Debug: List all sheets first
+  debugSheets();
+  
+  let compilationSheet = spreadsheet.getSheetByName('All Data');
+  
+  // Delete and recreate if exists
+  if (compilationSheet) {
+    spreadsheet.deleteSheet(compilationSheet);
+  }
+  
+  // Create new compilation sheet
+  compilationSheet = spreadsheet.insertSheet('All Data', 0);
+  const headers = getCompilationHeaders();
+  compilationSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  compilationSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  compilationSheet.setFrozenRows(1);
+  compilationSheet.autoResizeColumns(1, headers.length);
+  
+  // Get all contacts
+  const contactsSheet = spreadsheet.getSheetByName('Imported Contacts');
+  if (!contactsSheet) {
+    Logger.log('No Imported Contacts sheet found');
+    return;
+  }
+  
+  const contactData = contactsSheet.getDataRange().getValues();
+  Logger.log(`Found Imported Contacts sheet with ${contactData.length} rows (including header)`);
+  if (contactData.length < 2) {
+    Logger.log('No contacts to add to compilation tab - sheet only has headers');
+    Logger.log('Please check that contacts were actually written to the sheet');
+    return;
+  }
+  
+  const contactHeaders = contactData[0];
+  
+  // Get all accounts
+  const accountsSheet = spreadsheet.getSheetByName('Imported Accounts');
+  const accountMap = new Map();
+  if (accountsSheet) {
+    const accountData = accountsSheet.getDataRange().getValues();
+    const accountHeaders = accountData[0];
+    for (let i = 1; i < accountData.length; i++) {
+      const accountRow = accountData[i];
+      const accountIdIndex = accountHeaders.indexOf('LMN CRM ID');
+      const accountId = accountRow[accountIdIndex];
+      if (accountId) {
+        const account = {};
+        accountHeaders.forEach((header, idx) => {
+          const fieldMap = getFieldMap('accounts');
+          const fieldName = fieldMap[header] || header.toLowerCase().replace(/\s+/g, '_');
+          account[fieldName] = accountRow[idx];
+        });
+        accountMap.set(accountId, account);
+      }
+    }
+  }
+  
+  // Build rows for all contacts
+  const newRows = [];
+  for (let i = 1; i < contactData.length; i++) {
+    const contactRow = contactData[i];
+    const contact = {};
+    contactHeaders.forEach((header, idx) => {
+      const fieldMap = getFieldMap('contacts');
+      const fieldName = fieldMap[header] || header.toLowerCase().replace(/\s+/g, '_');
+      contact[fieldName] = contactRow[idx];
+    });
+    
+    // Get account for this contact - try multiple account ID fields
+    const accountIdIndex = contactHeaders.indexOf('Account ID');
+    const lmnCrmIdIndex = contactHeaders.indexOf('LMN CRM ID');
+    const accountId = (accountIdIndex >= 0 ? contactRow[accountIdIndex] : null) || 
+                      (lmnCrmIdIndex >= 0 ? contactRow[lmnCrmIdIndex] : null) ||
+                      contact.account_id || 
+                      contact.lmn_crm_id;
+    
+    const account = accountId ? accountMap.get(accountId) : null;
+    
+    // Build compilation row
+    const row = headers.map(header => {
+      if (account) {
+        const accountValue = getCompilationFieldValue(header, account, 'accounts');
+        if (accountValue !== '') return accountValue;
+      }
+      return getCompilationFieldValue(header, contact, 'contacts');
+    });
+    
+    newRows.push(row);
+  }
+  
+  // Append all rows
+  if (newRows.length > 0) {
+    compilationSheet.getRange(2, 1, newRows.length, headers.length).setValues(newRows);
+    
+    // Sort by Account Name, then Contact Name
+    const lastRow = compilationSheet.getLastRow();
+    const accountNameCol = headers.indexOf('Account Name') + 1;
+    const contactNameCol = headers.indexOf('Contact Name') + 1;
+    if (accountNameCol > 0 && contactNameCol > 0 && lastRow > 1) {
+      compilationSheet.getRange(2, 1, lastRow - 1, headers.length)
+        .sort([{column: accountNameCol, ascending: true}, {column: contactNameCol, ascending: true}]);
+    }
+    
+    Logger.log(`Rebuilt compilation tab with ${newRows.length} rows`);
+  }
 }
 
 /**

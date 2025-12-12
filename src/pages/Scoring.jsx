@@ -134,6 +134,77 @@ export default function Scoring() {
     }
   });
 
+  const importTemplateMutation = useMutation({
+    mutationFn: async () => {
+      setIsImporting(true);
+      const template = await parseScorecardTemplateFromSheet();
+      if (!template) {
+        throw new Error('Failed to parse template from Google Sheet');
+      }
+      
+      // Check if template already exists
+      const existing = templates.find(t => t.name === template.name);
+      if (existing) {
+        // Update existing template
+        return base44.entities.ScorecardTemplate.update(existing.id, template);
+      } else {
+        // Create new template
+        return base44.entities.ScorecardTemplate.create(template);
+      }
+    },
+    onSuccess: async (importedTemplate) => {
+      queryClient.invalidateQueries({ queryKey: ['scorecard-templates'] });
+      setIsImporting(false);
+      
+      // If this is marked as primary, auto-score all accounts
+      if (importedTemplate.is_default || importedTemplate.is_primary) {
+        await triggerAutoScore(importedTemplate);
+        alert('✅ Scorecard template imported and all accounts have been auto-scored!');
+      } else {
+        alert('✅ Scorecard template imported successfully!');
+      }
+    },
+    onError: (error) => {
+      setIsImporting(false);
+      alert(`❌ Failed to import template: ${error.message}`);
+      console.error('Import error:', error);
+    }
+  });
+
+  // Function to trigger auto-scoring for all accounts
+  const triggerAutoScore = async (template) => {
+    if (!template) return;
+    
+    setIsAutoScoring(true);
+    setAutoScoreProgress('Starting auto-scoring...');
+    
+    try {
+      const results = await autoScoreAllAccounts(template, (progress) => {
+        setAutoScoreProgress(progress);
+      });
+      
+      // Invalidate queries to refresh account scores
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['scorecards'] });
+      
+      setAutoScoreProgress(`✅ Auto-scoring complete: ${results.scored} accounts scored`);
+      
+      if (results.failed > 0) {
+        console.warn(`⚠️ ${results.failed} accounts failed to score:`, results.errors);
+      }
+      
+      // Clear progress message after a delay
+      setTimeout(() => {
+        setAutoScoreProgress('');
+      }, 3000);
+    } catch (error) {
+      console.error('❌ Auto-scoring error:', error);
+      setAutoScoreProgress(`❌ Auto-scoring failed: ${error.message}`);
+    } finally {
+      setIsAutoScoring(false);
+    }
+  };
+
   const resetForm = () => {
     setNewTemplate({
       name: '',

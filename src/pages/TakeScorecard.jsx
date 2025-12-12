@@ -179,21 +179,60 @@ export default function TakeScorecard() {
   const scoreData = calculateScore();
   const passThreshold = activeTemplate?.pass_threshold || 70;
 
+  // Show loading state while fetching
   if ((templateLoading && !isCustom) || accountLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading scorecard...</p>
+        </div>
       </div>
     );
   }
 
-  if (!activeTemplate || !account) {
+  // Check if account exists
+  if (!account) {
+    return (
+      <Card className="p-12 text-center">
+        <h3 className="text-lg font-medium text-slate-900 mb-1">Account not found</h3>
+        <p className="text-slate-600 mb-4">The account could not be found</p>
+        <Link to={createPageUrl('Accounts')}>
+          <Button>Back to Accounts</Button>
+        </Link>
+      </Card>
+    );
+  }
+
+  // Check if template exists (only if not custom and templateId is provided)
+  if (!isCustom && templateId && !template) {
+    return (
+      <Card className="p-12 text-center">
+        <h3 className="text-lg font-medium text-slate-900 mb-1">Scorecard template not found</h3>
+        <p className="text-slate-600 mb-4">
+          The template with ID "{templateId}" could not be found. It may have been deleted or the ID is incorrect.
+        </p>
+        <div className="flex gap-2 justify-center">
+          <Link to={createPageUrl(`AccountDetail?id=${accountId}`)}>
+            <Button variant="outline">Back to Account</Button>
+          </Link>
+          <Link to={createPageUrl('Scoring')}>
+            <Button>View Templates</Button>
+          </Link>
+        </div>
+      </Card>
+    );
+  }
+
+  // For custom scorecards, activeTemplate should exist (it's created inline)
+  // For template-based, we need activeTemplate to exist
+  if (!activeTemplate) {
     return (
       <Card className="p-12 text-center">
         <h3 className="text-lg font-medium text-slate-900 mb-1">Scorecard not found</h3>
-        <p className="text-slate-600 mb-4">The template or account could not be found</p>
-        <Link to={createPageUrl('Scoring')}>
-          <Button>Back to Scoring</Button>
+        <p className="text-slate-600 mb-4">Unable to load the scorecard template</p>
+        <Link to={createPageUrl(`AccountDetail?id=${accountId}`)}>
+          <Button>Back to Account</Button>
         </Link>
       </Card>
     );

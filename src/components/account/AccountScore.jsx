@@ -4,11 +4,12 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Award, Plus, Check, X, Download } from 'lucide-react';
+import { TrendingUp, Award, Plus, Check, X, Download, Sparkles, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 import { exportAndDownloadScorecard } from '../../utils/exportToCSV';
+import CreateScorecardDialog from './CreateScorecardDialog';
 
 export default function AccountScore({ accountId, scorecards, currentScore, accountName }) {
   const { data: templates = [] } = useQuery({
@@ -17,41 +18,84 @@ export default function AccountScore({ accountId, scorecards, currentScore, acco
   });
   const activeTemplates = templates.filter(t => t.is_active);
 
+  // Separate auto-scored primary from manual scorecards
+  const primaryScorecard = scorecards.find(s => s.is_primary === true || s.scorecard_type === 'auto');
+  const manualScorecards = scorecards.filter(s => s.scorecard_type === 'manual' || (!s.is_primary && s.scorecard_type !== 'auto'));
+
   return (
     <div className="space-y-6">
-      {/* Current Score */}
-      <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-600" />
-            Current Organization Score
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-6">
-            <div className="text-6xl font-bold text-emerald-600">
-              {currentScore !== null && currentScore !== undefined ? currentScore : '—'}
+      {/* Primary Auto-Scored ICP Scorecard */}
+      {primaryScorecard && (
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-600" />
+                Primary ICP Score (Auto-Scored)
+              </CardTitle>
+              <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                Auto-Scored
+              </Badge>
             </div>
-            <div className="text-slate-600">
-              <p className="text-sm">Out of 100</p>
-              <p className="text-xs mt-1">
-                {scorecards.length > 0 
-                  ? `Last updated ${format(new Date(scorecards[0].completed_date), 'MMM d, yyyy')}`
-                  : 'No scorecards completed yet'}
-              </p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <div className="text-6xl font-bold text-blue-600">
+                {primaryScorecard.normalized_score || currentScore || '—'}
+              </div>
+              <div className="text-slate-600">
+                <p className="text-sm">Out of 100</p>
+                <p className="text-xs mt-1">
+                  Last updated {format(new Date(primaryScorecard.completed_date || primaryScorecard.scorecard_date), 'MMM d, yyyy')}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Based on: {primaryScorecard.template_name || 'ICP Weighted Scorecard'}
+                </p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-      {/* Available Templates */}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Current Organization Score (if no primary scorecard) */}
+      {!primaryScorecard && (
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600" />
+              Current Organization Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <div className="text-6xl font-bold text-emerald-600">
+                {currentScore !== null && currentScore !== undefined ? currentScore : '—'}
+              </div>
+              <div className="text-slate-600">
+                <p className="text-sm">Out of 100</p>
+                <p className="text-xs mt-1">
+                  {scorecards.length > 0 
+                    ? `Last updated ${format(new Date(scorecards[0].completed_date), 'MMM d, yyyy')}`
+                    : 'No scorecards completed yet'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create New Manual Scorecard */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">Available Scorecards</h3>
-          <Link to={createPageUrl('Scoring')}>
-            <Button variant="outline" size="sm">
-              Manage Templates
-            </Button>
-          </Link>
+          <h3 className="text-lg font-semibold text-slate-900">Manual Scorecards</h3>
+          <div className="flex gap-2">
+            <CreateScorecardDialog accountId={accountId} accountName={accountName} />
+            <Link to={createPageUrl('Scoring')}>
+              <Button variant="outline" size="sm">
+                Manage Templates
+              </Button>
+            </Link>
+          </div>
         </div>
         
         {activeTemplates.length === 0 ? (
@@ -96,12 +140,12 @@ export default function AccountScore({ accountId, scorecards, currentScore, acco
         )}
       </div>
 
-      {/* Scorecard History */}
-      {scorecards.length > 0 && (
+      {/* Manual Scorecard History */}
+      {manualScorecards.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Scorecard History</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Manual Scorecard History</h3>
           <div className="space-y-3">
-            {scorecards.map(scorecard => {
+            {manualScorecards.map(scorecard => {
               const isPass = scorecard.is_pass || (scorecard.normalized_score >= 70); // Default threshold
               const scorecardDate = scorecard.scorecard_date 
                 ? format(new Date(scorecard.scorecard_date), 'MMM d, yyyy')
@@ -121,7 +165,11 @@ export default function AccountScore({ accountId, scorecards, currentScore, acco
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-slate-900">{scorecard.template_name}</h4>
+                          <h4 className="font-medium text-slate-900">{scorecard.template_name || 'Custom Scorecard'}</h4>
+                          <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300">
+                            <FileText className="w-3 h-3 mr-1 inline" />
+                            Manual
+                          </Badge>
                           <Badge 
                             className={isPass 
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 

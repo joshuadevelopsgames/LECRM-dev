@@ -77,7 +77,7 @@ export async function autoScoreAllAccounts(primaryTemplate, onProgress = null) {
         const scoreData = autoScoreAccount(account, accountEstimates, accountJobsites, primaryTemplate);
         
         if (scoreData) {
-          // Create or update scorecard response
+          // Create or update scorecard response (marked as auto-scored primary)
           const scorecardResponse = {
             account_id: account.id,
             template_id: primaryTemplate.id,
@@ -89,7 +89,9 @@ export async function autoScoreAllAccounts(primaryTemplate, onProgress = null) {
             is_pass: scoreData.is_pass,
             scorecard_date: new Date().toISOString().split('T')[0],
             completed_by: 'system-auto',
-            completed_date: new Date().toISOString()
+            completed_date: new Date().toISOString(),
+            scorecard_type: 'auto', // Mark as auto-scored primary ICP
+            is_primary: true // Mark as primary scorecard
           };
 
           // Check if scorecard response already exists for this account and template

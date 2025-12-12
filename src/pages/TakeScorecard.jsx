@@ -18,10 +18,23 @@ export default function TakeScorecard() {
   const urlParams = new URLSearchParams(window.location.search);
   const accountId = urlParams.get('accountId');
   const templateId = urlParams.get('templateId');
+  const isCustom = urlParams.get('custom') === 'true';
+  const customName = urlParams.get('name') || '';
+  const customDescription = urlParams.get('description') || '';
 
   const [answers, setAnswers] = useState({});
   const [scorecardDate, setScorecardDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const queryClient = useQueryClient();
+
+  // For custom scorecards, create a simple template structure
+  const customTemplate = isCustom ? {
+    id: 'custom',
+    name: customName || 'Custom Scorecard',
+    description: customDescription,
+    questions: [], // Will be empty for now - can add question editor later
+    total_possible_score: 0,
+    pass_threshold: 70
+  } : null;
 
   const { data: template, isLoading: templateLoading } = useQuery({
     queryKey: ['scorecard-template', templateId],
@@ -29,8 +42,11 @@ export default function TakeScorecard() {
       const templates = await base44.entities.ScorecardTemplate.list();
       return templates.find(t => t.id === templateId);
     },
-    enabled: !!templateId
+    enabled: !!templateId && !isCustom
   });
+
+  // Use custom template if in custom mode, otherwise use fetched template
+  const activeTemplate = isCustom ? customTemplate : template;
 
   const { data: account, isLoading: accountLoading } = useQuery({
     queryKey: ['account', accountId],
@@ -43,10 +59,10 @@ export default function TakeScorecard() {
 
   // Group questions by section
   const questionsBySection = useMemo(() => {
-    if (!template?.questions) return {};
+    if (!activeTemplate?.questions) return {};
     
     const grouped = {};
-    template.questions.forEach((question, index) => {
+    activeTemplate.questions.forEach((question, index) => {
       const section = question.section || 'Other';
       if (!grouped[section]) {
         grouped[section] = [];
@@ -55,17 +71,17 @@ export default function TakeScorecard() {
     });
     
     return grouped;
-  }, [template]);
+  }, [activeTemplate]);
 
   const submitScorecardMutation = useMutation({
     mutationFn: async (data) => {
       const user = await base44.auth.me();
       
-      // Create scorecard response with section breakdown
+      // Create scorecard response with section breakdown (marked as manual)
       await base44.entities.ScorecardResponse.create({
         account_id: accountId,
-        template_id: templateId,
-        template_name: template.name,
+        template_id: isCustom ? null : templateId,
+        template_name: isCustom ? (customName || 'Custom Scorecard') : activeTemplate?.name || 'Scorecard',
         responses: data.responses,
         section_scores: data.section_scores, // NEW: Store section sub-totals
         total_score: data.total_score,
@@ -73,13 +89,13 @@ export default function TakeScorecard() {
         is_pass: data.is_pass, // NEW: Pass/fail status
         scorecard_date: scorecardDate,
         completed_by: user.email,
-        completed_date: new Date().toISOString()
+        completed_date: new Date().toISOString(),
+        scorecard_type: 'manual', // Mark as manually completed
+        is_primary: false // Manual scorecards are not primary
       });
 
-      // Update account with new score
-      await base44.entities.Account.update(accountId, {
-        organization_score: data.normalized_score
-      });
+      // Don't update account organization_score for manual scorecards
+      // Only auto-scored primary scorecards should update organization_score
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['account', accountId] });
@@ -97,9 +113,11 @@ export default function TakeScorecard() {
   };
 
   const calculateScore = () => {
-    if (!template?.questions) return { total: 0, normalized: 0, responses: [], section_scores: {}, is_pass: false };
+    if (!activeTemplate?.questions || activeTemplate.questions.length === 0) {
+      return { total: 0, normalized: 0, responses: [], section_scores: {}, is_pass: false };
+    }
 
-    const responses = template.questions.map((question, index) => {
+    const responses = activeTemplate.questions.map((question, index) => {
       const answer = answers[index] || 0;
       const weightedScore = answer * question.weight;
       
@@ -123,8 +141,10 @@ export default function TakeScorecard() {
     });
 
     const totalScore = responses.reduce((sum, r) => sum + r.weighted_score, 0);
-    const normalizedScore = Math.round((totalScore / template.total_possible_score) * 100);
-    const passThreshold = template.pass_threshold || 70;
+    const normalizedScore = activeTemplate.total_possible_score > 0 
+      ? Math.round((totalScore / activeTemplate.total_possible_score) * 100)
+      : 0;
+    const passThreshold = activeTemplate.pass_threshold || 70;
     const isPass = normalizedScore >= passThreshold;
 
     return {
@@ -149,17 +169,17 @@ export default function TakeScorecard() {
       completed_date: new Date().toISOString(),
       completed_by: 'Current User' // Will be set on submit
     };
-    exportAndDownloadScorecard(scorecardData, template, account);
+    exportAndDownloadScorecard(scorecardData, activeTemplate, account);
   };
 
-  const isComplete = template?.questions?.every((_, index) => answers[index] !== undefined);
+  const isComplete = activeTemplate?.questions?.every((_, index) => answers[index] !== undefined);
   const answeredCount = Object.keys(answers).length;
-  const totalQuestions = template?.questions?.length || 0;
+  const totalQuestions = activeTemplate?.questions?.length || 0;
   const progress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
   const scoreData = calculateScore();
-  const passThreshold = template?.pass_threshold || 70;
+  const passThreshold = activeTemplate?.pass_threshold || 70;
 
-  if (templateLoading || accountLoading) {
+  if ((templateLoading && !isCustom) || accountLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
@@ -167,7 +187,7 @@ export default function TakeScorecard() {
     );
   }
 
-  if (!template || !account) {
+  if (!activeTemplate || !account) {
     return (
       <Card className="p-12 text-center">
         <h3 className="text-lg font-medium text-slate-900 mb-1">Scorecard not found</h3>
@@ -220,10 +240,10 @@ export default function TakeScorecard() {
         </Link>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">{template.name}</h1>
+            <h1 className="text-3xl font-bold text-slate-900">{activeTemplate?.name || 'Custom Scorecard'}</h1>
             <p className="text-slate-600 mt-1">For: {account.name}</p>
-            {template.description && (
-              <p className="text-sm text-slate-600 mt-2">{template.description}</p>
+            {activeTemplate?.description && (
+              <p className="text-sm text-slate-600 mt-2">{activeTemplate.description}</p>
             )}
           </div>
           <div className="text-right">
@@ -276,7 +296,21 @@ export default function TakeScorecard() {
           </div>
 
           {/* Questions grouped by section */}
-          {Object.entries(questionsBySection).map(([section, questions]) => {
+          {Object.keys(questionsBySection).length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-slate-600 mb-4">
+                {isCustom 
+                  ? "Custom scorecards with editable questions are coming soon. For now, please use a template-based scorecard."
+                  : "No questions found in this scorecard template."
+                }
+              </p>
+              <Link to={createPageUrl(`AccountDetail?id=${accountId}`)}>
+                <Button variant="outline">Back to Account</Button>
+              </Link>
+            </div>
+          ) : (
+            <>
+              {Object.entries(questionsBySection).map(([section, questions]) => {
             const sectionScore = scoreData.section_scores[section] || 0;
             const sectionAnswered = questions.every(q => answers[q.originalIndex] !== undefined);
             
@@ -393,6 +427,8 @@ export default function TakeScorecard() {
               </div>
             );
           })}
+            </>
+          )}
 
           {/* Total Score and Pass/Fail */}
           <div className="grid grid-cols-12 gap-2 p-6 bg-gradient-to-r from-slate-50 to-white border-t-4 border-slate-900">

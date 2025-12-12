@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Check, X, Download } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -166,10 +166,9 @@ export default function TakeScorecard() {
         queryClient.invalidateQueries({ queryKey: ['scorecards', accountId] })
       ]);
       
-      // Small delay to ensure queries are invalidated before redirect
-      setTimeout(() => {
-        window.location.href = createPageUrl(`AccountDetail?id=${accountId}`);
-      }, 100);
+      // Use navigate instead of window.location for better state management
+      // This ensures React Query cache is properly cleared
+      navigate(createPageUrl(`AccountDetail?id=${accountId}`), { replace: true });
     },
     onError: (error) => {
       console.error('❌ Error submitting scorecard:', error);

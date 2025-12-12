@@ -45,8 +45,8 @@ export default function Scoring() {
     queryFn: () => base44.entities.ScorecardTemplate.list()
   });
 
-  // Find default template (for import reference, but not for auto-scoring)
-  const defaultTemplate = templates.find(t => t.is_default === true || t.is_primary === true) || 
+  // Find default template (for import reference only)
+  const defaultTemplate = templates.find(t => t.is_default === true) || 
                           templates.find(t => t.name === 'ICP Weighted Scorecard' && t.is_active);
 
   const [newTemplate, setNewTemplate] = useState({

@@ -45,23 +45,40 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('jobsites')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        return res.status(500).json({
-          success: false,
-          error: error.message
-        });
+      // Fetch all jobsites using pagination to bypass Supabase's 1000 row limit
+      let allJobsites = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('jobsites')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (error) {
+          console.error('Supabase error:', error);
+          return res.status(500).json({
+            success: false,
+            error: error.message
+          });
+        }
+        
+        if (data && data.length > 0) {
+          allJobsites = allJobsites.concat(data);
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
       }
       
       return res.status(200).json({
         success: true,
-        data: data || [],
-        count: data?.length || 0
+        data: allJobsites,
+        count: allJobsites.length
       });
     }
     

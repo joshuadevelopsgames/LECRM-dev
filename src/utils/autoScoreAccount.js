@@ -3,6 +3,8 @@
  * Maps account data to scorecard questions and calculates the score
  */
 
+import { findMappingRule, applyMappingRule } from './scorecardMappings';
+
 /**
  * Auto-score an account using the primary scorecard template
  * @param {Object} account - The account to score
@@ -26,13 +28,31 @@ export function autoScoreAccount(account, estimates, jobsites, template) {
   const lostEstimates = estimates.filter(est => est.status === 'lost').length;
   const jobsitesCount = jobsites.length;
 
-  // Map account data to scorecard questions
+  // Map account data to scorecard questions using mapping rules
   const responses = template.questions.map((question) => {
-    const questionText = question.question_text.toLowerCase();
+    // Try to find a mapping rule for this question
+    const rule = findMappingRule(question);
+    
     let answer = 0;
-    let answerText = '';
+    let answerText = 'N/A';
+    
+    if (rule) {
+      // Apply the mapping rule
+      const result = applyMappingRule(rule, account, estimates, jobsites);
+      answer = result.answer;
+      answerText = result.answerText;
+    } else {
+      // No mapping rule found - use default behavior
+      // You can add fallback logic here or log unmapped questions
+      console.warn(`⚠️ No mapping rule found for question: "${question.question_text}"`);
+      answer = 0;
+      answerText = 'N/A';
+    }
 
-    // Map questions to account data
+    // Legacy mapping code (kept for reference, but now using mapping rules)
+    // This section can be removed once all questions are mapped via rules
+    const questionText = question.question_text.toLowerCase();
+    if (false) { // Disabled - using mapping rules instead
     if (questionText.includes('client operations region') || questionText.includes('operations region')) {
       // Check if account is in service area (Calgary & Surrounding)
       const city = (account.city || '').toLowerCase();
@@ -211,6 +231,7 @@ export function autoScoreAccount(account, estimates, jobsites, template) {
       answer = 0;
       answerText = 'N/A';
     }
+    } // End of legacy mapping code (disabled)
 
     // Calculate weighted score
     const weightedScore = answer * question.weight;

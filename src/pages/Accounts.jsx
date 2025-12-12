@@ -124,20 +124,17 @@ export default function Accounts() {
     const matchesSearch = account.name?.toLowerCase().includes(searchTerm.toLowerCase());
     
     // Check both account_type and tags for type matching
-    if (filterType === 'all') {
-      // No type filtering needed
-    } else {
+    let matchesType = true;
+    if (filterType !== 'all') {
       const accountTypeForFilter = getAccountTypeForFiltering(account);
       const accountTypeMatch = account.account_type?.toLowerCase() === filterType;
       const tagBasedMatch = accountTypeForFilter === filterType;
       
-      if (!accountTypeMatch && !tagBasedMatch) {
-        return false; // Doesn't match the filter
-      }
+      matchesType = accountTypeMatch || tagBasedMatch;
     }
     
     const matchesSegment = filterSegment === 'all' || account.revenue_segment === filterSegment;
-    return matchesSearch && matchesSegment;
+    return matchesSearch && matchesType && matchesSegment;
   });
 
   filteredAccounts.sort((a, b) => {

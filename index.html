@@ -72,8 +72,19 @@
     </style>
     <script>
       // Set background immediately to prevent black screen
-      document.documentElement.style.backgroundColor = '#ffffff';
-      document.body.style.backgroundColor = '#ffffff';
+      if (document.documentElement) {
+        document.documentElement.style.backgroundColor = '#ffffff';
+      }
+      if (document.body) {
+        document.body.style.backgroundColor = '#ffffff';
+      } else {
+        // Wait for body to be available
+        document.addEventListener('DOMContentLoaded', function() {
+          if (document.body) {
+            document.body.style.backgroundColor = '#ffffff';
+          }
+        });
+      }
     </script>
     <title>LECRM</title>
   </head>
@@ -126,8 +137,12 @@
         }
         
         // Set body background immediately
-        document.body.style.backgroundColor = '#ffffff';
-        document.documentElement.style.backgroundColor = '#ffffff';
+        if (document.body) {
+          document.body.style.backgroundColor = '#ffffff';
+        }
+        if (document.documentElement) {
+          document.documentElement.style.backgroundColor = '#ffffff';
+        }
         console.log('✅ Background set to white');
         
         // Ensure root is visible

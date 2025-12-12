@@ -6,19 +6,21 @@ import './index.css';
 // Hide the initial loading screen once React is ready
 const hideLoadingScreen = () => {
   const loadingScreen = document.getElementById('loading-screen');
-  if (loadingScreen) {
+  if (loadingScreen && loadingScreen.style) {
     console.log('Hiding loading screen...');
     loadingScreen.style.opacity = '0';
     loadingScreen.style.transition = 'opacity 0.3s ease-out';
     loadingScreen.style.pointerEvents = 'none';
     setTimeout(() => {
-      loadingScreen.style.display = 'none';
-      loadingScreen.remove();
-      console.log('Loading screen removed');
+      if (loadingScreen && loadingScreen.style) {
+        loadingScreen.style.display = 'none';
+        loadingScreen.remove();
+        console.log('Loading screen removed');
+      }
       
       // Ensure root is visible
       const root = document.getElementById('root');
-      if (root) {
+      if (root && root.style) {
         root.style.display = 'block';
         root.style.visibility = 'visible';
         root.style.opacity = '1';
@@ -75,7 +77,7 @@ try {
 // Ensure loading screen stays visible until React is ready
 const ensureLoadingScreenVisible = () => {
   const loadingScreen = document.getElementById('loading-screen');
-  if (loadingScreen) {
+  if (loadingScreen && loadingScreen.style) {
     loadingScreen.style.display = 'flex';
     loadingScreen.style.opacity = '1';
     loadingScreen.style.visibility = 'visible';
@@ -145,7 +147,7 @@ const checkAndHide = () => {
       console.log('✅ App content detected and visible, hiding loading screen');
       
       // Make sure root is visible immediately
-      if (root) {
+      if (root && root.style) {
         root.style.display = 'block';
         root.style.visibility = 'visible';
         root.style.opacity = '1';
@@ -162,7 +164,7 @@ const checkAndHide = () => {
     // Also check if we're on login page - force hide after a few checks
     if (window.location.pathname === '/login' && checkCount > 10) {
       console.log('✅ Login page detected, forcing loading screen to hide');
-      if (root) {
+      if (root && root.style) {
         root.style.display = 'block';
         root.style.visibility = 'visible';
         root.style.opacity = '1';

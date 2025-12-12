@@ -4,9 +4,10 @@
  */
 
 // Google Sheets API configuration
-const GOOGLE_SHEET_ID = '193wKTGmz1zvWud05U1rCY9SysGQAeYc2KboO6_JjrJs';
+const GOOGLE_SHEET_ID = '1yz-StxTwUcisYEFREG0IbRfIkbmLQUE0DvEnL8oBxlk'; // LECRM Database sheet
 const API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '';
-const WEB_APP_URL = import.meta.env.VITE_GOOGLE_SHEETS_WEB_APP_URL || '';
+// Note: WEB_APP_URL and SECRET_TOKEN are now handled server-side via API proxy
+// This prevents exposing the secret token to the browser
 
 /**
  * Fetch data from a specific sheet/tab
@@ -1088,58 +1089,37 @@ export async function getSheetData(forceRefresh = false) {
 }
 
 /**
- * Write data to Google Sheets via Apps Script Web App
- * This allows us to write data without OAuth on the frontend
+ * Write data to Google Sheets via backend API proxy
+ * The secret token is kept secure on the server side (never exposed to browser)
  */
 export async function writeToGoogleSheet(entityType, records) {
-  const webAppUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEB_APP_URL || '';
-  if (!webAppUrl) {
-    console.warn('Google Sheets Web App URL not configured. Data will not be saved to sheet.');
-    console.warn('Please set VITE_GOOGLE_SHEETS_WEB_APP_URL in your environment variables.');
-    return { success: false, error: 'Web App URL not configured' };
-  }
-
   if (!Array.isArray(records) || records.length === 0) {
     return { success: false, error: 'No records to write' };
   }
 
   try {
-    console.log(`📤 Sending ${records.length} ${entityType} records to Google Sheets...`);
-    const payload = {
-      action: 'upsert',
-      entityType: entityType,
-      records: records
-    };
-    console.log(`📤 Payload preview:`, {
-      action: payload.action,
-      entityType: payload.entityType,
-      recordCount: payload.records.length,
-      firstRecordKeys: payload.records[0] ? Object.keys(payload.records[0]).slice(0, 5) : []
-    });
+    console.log(`📤 Sending ${records.length} ${entityType} records to Google Sheets via secure API...`);
     
-    // Use text/plain to avoid CORS preflight (Google Apps Script handles this better)
-    // Add timeout for large batches (Google Apps Script has 6 minute execution limit)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
-    
-    const response = await fetch(webAppUrl, {
+    // Call our backend API endpoint (not Google Apps Script directly)
+    // The backend will add the secret token server-side
+    const response = await fetch('/api/google-sheets/write', {
       method: 'POST',
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
+        'Content-Type': 'application/json',
       },
-      redirect: 'follow', // Important: follow redirects
-      body: JSON.stringify(payload),
-      signal: controller.signal
+      body: JSON.stringify({
+        entityType: entityType,
+        records: records
+        // Note: Secret token is added by the backend API, never sent from browser
+      })
     });
-    
-    clearTimeout(timeoutId);
 
     console.log(`📥 Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ HTTP error response:`, errorText);
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText.substring(0, 200)}`);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error(`❌ API error response:`, errorData);
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
@@ -1161,10 +1141,6 @@ export async function writeToGoogleSheet(entityType, records) {
       throw new Error(result.error || 'Unknown error');
     }
   } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error(`❌ Timeout writing ${entityType} to Google Sheet (took longer than 5 minutes)`);
-      return { success: false, error: 'Request timeout - Google Apps Script may be processing a large batch. Try importing in smaller chunks.' };
-    }
     console.error(`❌ Error writing ${entityType} to Google Sheet:`, error);
     return { success: false, error: error.message };
   }

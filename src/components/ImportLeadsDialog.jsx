@@ -474,9 +474,7 @@ export default function ImportLeadsDialog({ open, onClose }) {
         }
       }
 
-      // Write all imported data to Google Sheets
-      const webAppUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEB_APP_URL;
-      console.log('🔍 Web App URL check:', webAppUrl ? 'Found' : 'Missing');
+      // Write all imported data to Google Sheets via secure backend API
       console.log('🔍 Merged data counts:', {
         accounts: mergedData?.accounts?.length || 0,
         contacts: mergedData?.contacts?.length || 0,
@@ -484,14 +482,11 @@ export default function ImportLeadsDialog({ open, onClose }) {
         jobsites: mergedData?.jobsites?.length || 0
       });
       
-      if (!webAppUrl) {
-        console.warn('⚠️ Google Sheets Web App URL not configured. Imported data will not be saved to Google Sheets.');
-        console.warn('Set VITE_GOOGLE_SHEETS_WEB_APP_URL in your environment variables to enable Google Sheets sync.');
-        console.warn('Current env vars:', Object.keys(import.meta.env).filter(k => k.includes('GOOGLE')));
-      } else {
+      // Note: Google Sheets sync is now handled via backend API
+      // The secret token is kept secure on the server side
+      {
         try {
-          console.log('📝 Writing imported data to Google Sheets...');
-          console.log('📝 Web App URL:', webAppUrl.substring(0, 50) + '...');
+          console.log('📝 Writing imported data to Google Sheets via secure API...');
           
           // Write accounts
           if (mergedData.accounts && mergedData.accounts.length > 0) {
@@ -664,7 +659,8 @@ export default function ImportLeadsDialog({ open, onClose }) {
       setImportStatus('success');
 
       // Clear caches and force refresh after writing to Google Sheets
-      if (webAppUrl) {
+      // Always clear cache after import (Google Sheets sync happens via backend API)
+      {
         // Wait longer for Google Sheets to process all the writes
         await new Promise(resolve => setTimeout(resolve, 3000));
         

@@ -46,9 +46,21 @@ export default function Scoring() {
     queryFn: () => base44.entities.ScorecardTemplate.list()
   });
 
-  // Find default template (for import reference only)
-  const defaultTemplate = templates.find(t => t.is_default === true) || 
-                          templates.find(t => t.name === 'ICP Weighted Scorecard' && t.is_active);
+  // Get current ICP template
+  const { data: icpTemplate, isLoading: icpLoading } = useQuery({
+    queryKey: ['icp-template'],
+    queryFn: () => base44.entities.ScorecardTemplate.getCurrentICP()
+  });
+  
+  // Get version history for ICP template
+  const { data: icpVersionHistory = [] } = useQuery({
+    queryKey: ['icp-version-history', icpTemplate?.id],
+    queryFn: async () => {
+      if (!icpTemplate?.id) return [];
+      return await base44.entities.ScorecardTemplate.getVersionHistory(icpTemplate.id);
+    },
+    enabled: !!icpTemplate?.id
+  });
 
   const [newTemplate, setNewTemplate] = useState({
     name: '',

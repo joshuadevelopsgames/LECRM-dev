@@ -30,8 +30,16 @@ export default function JobsitesTab({ jobsites = [], accountId }) {
                       <MapPin className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-slate-900">{jobsite.name}</h4>
-                      <p className="text-sm text-slate-600 mt-1">{jobsite.address}</p>
+                      <h4 className="font-semibold text-slate-900">{jobsite.name || 'Unnamed Jobsite'}</h4>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {[
+                          jobsite.address_1,
+                          jobsite.address_2,
+                          jobsite.city,
+                          jobsite.state,
+                          jobsite.postal_code
+                        ].filter(Boolean).join(', ') || 'No address'}
+                      </p>
                     </div>
                   </div>
                   {jobsite.status && (

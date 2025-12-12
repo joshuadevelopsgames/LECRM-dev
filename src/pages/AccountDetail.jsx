@@ -86,34 +86,44 @@ export default function AccountDetail() {
     queryFn: () => base44.entities.ResearchNote.filter({ account_id: accountId }, '-recorded_date')
   });
 
-  // Fetch estimates for this account
+  // Fetch estimates for this account (server-side filtering for accuracy)
   const { data: estimates = [] } = useQuery({
     queryKey: ['estimates', accountId],
     queryFn: async () => {
       if (!accountId) return [];
-      const response = await fetch('/api/data/estimates');
+      // Validate accountId is a valid UUID
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(accountId)) {
+        console.warn('Invalid accountId format:', accountId);
+        return [];
+      }
+      // Use server-side filtering for accurate results
+      const response = await fetch(`/api/data/estimates?account_id=${encodeURIComponent(accountId)}`);
       if (!response.ok) return [];
       const result = await response.json();
       if (result.success) {
-        // Filter estimates by account_id (UUID match)
-        return result.data.filter(est => est.account_id === accountId);
+        return result.data || [];
       }
       return [];
     },
     enabled: !!accountId && !!account
   });
 
-  // Fetch jobsites for this account
+  // Fetch jobsites for this account (server-side filtering for accuracy)
   const { data: jobsites = [] } = useQuery({
     queryKey: ['jobsites', accountId],
     queryFn: async () => {
       if (!accountId) return [];
-      const response = await fetch('/api/data/jobsites');
+      // Validate accountId is a valid UUID
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(accountId)) {
+        console.warn('Invalid accountId format:', accountId);
+        return [];
+      }
+      // Use server-side filtering for accurate results
+      const response = await fetch(`/api/data/jobsites?account_id=${encodeURIComponent(accountId)}`);
       if (!response.ok) return [];
       const result = await response.json();
       if (result.success) {
-        // Filter jobsites by account_id (UUID match)
-        return result.data.filter(job => job.account_id === accountId);
+        return result.data || [];
       }
       return [];
     },

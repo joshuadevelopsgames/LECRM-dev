@@ -95,7 +95,7 @@ export default function EstimatesTab({ estimates = [], accountId }) {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-sm text-slate-900">{estimate.description || '—'}</p>
+                      <p className="text-sm text-slate-900">{estimate.project_name || estimate.description || '—'}</p>
                       {estimate.notes && (
                         <p className="text-xs text-slate-500 mt-1">{estimate.notes}</p>
                       )}
@@ -104,7 +104,12 @@ export default function EstimatesTab({ estimates = [], accountId }) {
                       <div className="flex items-center justify-end gap-1">
                         <DollarSign className="w-4 h-4 text-slate-500" />
                         <span className="font-semibold text-slate-900">
-                          {estimate.total_amount ? estimate.total_amount.toLocaleString() : '—'}
+                          {estimate.total_price_with_tax || estimate.total_price 
+                            ? (estimate.total_price_with_tax || estimate.total_price).toLocaleString('en-US', { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })
+                            : '—'}
                         </span>
                       </div>
                     </td>

@@ -45,17 +45,35 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
     
     if (req.method === 'GET') {
-      // Fetch all estimates using pagination to bypass Supabase's 1000 row limit
+      // Support filtering by account_id via query parameter
+      const accountId = req.query.account_id;
+      
+      // Validate account_id is a valid UUID if provided
+      if (accountId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(accountId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid account_id format. Must be a valid UUID.'
+        });
+      }
+
+      // Fetch estimates using pagination to bypass Supabase's 1000 row limit
       let allEstimates = [];
       let page = 0;
       const pageSize = 1000;
       let hasMore = true;
 
       while (hasMore) {
-        const { data, error } = await supabase
+        let query = supabase
           .from('estimates')
           .select('*')
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false });
+        
+        // Filter by account_id if provided (server-side filtering for accuracy)
+        if (accountId) {
+          query = query.eq('account_id', accountId);
+        }
+        
+        const { data, error } = await query
           .range(page * pageSize, (page + 1) * pageSize - 1);
         
         if (error) {

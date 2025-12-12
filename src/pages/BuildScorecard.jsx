@@ -22,6 +22,9 @@ export default function BuildScorecard() {
   const urlParams = new URLSearchParams(window.location.search);
   const accountId = urlParams.get('accountId');
   const templateId = urlParams.get('templateId');
+  const isCustom = urlParams.get('custom') === 'true';
+  const customName = urlParams.get('name') || '';
+  const customDescription = urlParams.get('description') || '';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -32,7 +35,7 @@ export default function BuildScorecard() {
       const found = templates.find(t => String(t.id) === String(templateId));
       return found;
     },
-    enabled: !!templateId
+    enabled: !!templateId && !isCustom
   });
 
   const { data: account, isLoading: accountLoading } = useQuery({
@@ -47,12 +50,20 @@ export default function BuildScorecard() {
 
   // Initialize scorecard with template questions (can be edited)
   const [scorecardName, setScorecardName] = useState(() => {
+    if (isCustom && customName) {
+      return customName;
+    }
     if (template) {
       return `${template.name} (Custom)`;
     }
     return 'Custom Scorecard';
   });
-  const [scorecardDescription, setScorecardDescription] = useState(template?.description || '');
+  const [scorecardDescription, setScorecardDescription] = useState(() => {
+    if (isCustom && customDescription) {
+      return customDescription;
+    }
+    return template?.description || '';
+  });
   const [questions, setQuestions] = useState(() => {
     if (template?.questions) {
       return template.questions.map((q, index) => ({
@@ -137,7 +148,7 @@ export default function BuildScorecard() {
     }
   });
 
-  if (templateLoading || accountLoading) {
+  if ((templateLoading && !isCustom) || accountLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -148,11 +159,24 @@ export default function BuildScorecard() {
     );
   }
 
-  if (!template || !account) {
+  if (!account) {
     return (
       <Card className="p-12 text-center">
-        <h3 className="text-lg font-medium text-slate-900 mb-1">Template or account not found</h3>
-        <p className="text-slate-600 mb-4">The template or account could not be found</p>
+        <h3 className="text-lg font-medium text-slate-900 mb-1">Account not found</h3>
+        <p className="text-slate-600 mb-4">The account could not be found</p>
+        <Link to={createPageUrl(`AccountDetail?id=${accountId}`)}>
+          <Button>Back to Account</Button>
+        </Link>
+      </Card>
+    );
+  }
+
+  // For template-based, require template. For custom, template is optional
+  if (!isCustom && !template) {
+    return (
+      <Card className="p-12 text-center">
+        <h3 className="text-lg font-medium text-slate-900 mb-1">Template not found</h3>
+        <p className="text-slate-600 mb-4">The template could not be found</p>
         <Link to={createPageUrl(`AccountDetail?id=${accountId}`)}>
           <Button>Back to Account</Button>
         </Link>

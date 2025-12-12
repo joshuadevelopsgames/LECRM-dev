@@ -461,16 +461,6 @@ export default function Scoring() {
       </div>
 
       {/* Auto-scoring progress */}
-      {autoScoreProgress && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <RefreshCw className={`w-4 h-4 text-blue-600 ${isAutoScoring ? 'animate-spin' : ''}`} />
-              <p className="text-sm text-blue-900">{autoScoreProgress}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {templates.length === 0 && (
         <Card className="p-12 text-center">

@@ -7,57 +7,148 @@
  * 1. Open your Google Sheet: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit
  * 2. Go to Extensions → Apps Script
  * 3. Paste this code
- * 4. Save the project
- * 5. Click "Deploy" → "New deployment"
- * 6. Select type: "Web app"
- * 7. Execute as: "Me"
- * 8. Who has access: "Anyone" (or "Anyone with Google account" for more security)
- * 9. Click "Deploy"
- * 10. Copy the Web App URL and add it to your .env file as VITE_GOOGLE_SHEETS_WEB_APP_URL
+ * 4. Set the SECRET_TOKEN in Script Properties (see setup below)
+ * 5. Save the project
+ * 6. Click "Deploy" → "New deployment"
+ * 7. Select type: "Web app"
+ * 8. Execute as: "Me"
+ * 9. Who has access: "Anyone" (required for CORS, but protected by secret token)
+ * 10. Click "Deploy"
+ * 11. Copy the Web App URL and add it to your .env file as VITE_GOOGLE_SHEETS_WEB_APP_URL
+ * 12. Add the same SECRET_TOKEN to your .env file as VITE_GOOGLE_SHEETS_SECRET_TOKEN
+ * 
+ * SECURITY SETUP:
+ * To set the secret token:
+ * 1. In Apps Script editor, go to Project Settings (gear icon)
+ * 2. Scroll to "Script Properties"
+ * 3. Click "Add script property"
+ * 4. Property: SECRET_TOKEN
+ * 5. Value: Generate a strong random token (use a password generator, 32+ characters)
+ * 6. Click "Save script properties"
+ * 
+ * IMPORTANT: Use the same token value in your frontend .env file!
  */
 
-const SHEET_ID = '1CzkVSbflUrYO_90Zk7IEreDOIV4lMFnWe30dFilFa6s'; // Update with your sheet ID
+const SHEET_ID = '1yz-StxTwUcisYEFREG0IbRfIkbmLQUE0DvEnL8oBxlk'; // LECRM Database sheet
+
+/**
+ * Get the secret token from Script Properties
+ * This is more secure than hardcoding it in the script
+ */
+function getSecretToken() {
+  const properties = PropertiesService.getScriptProperties();
+  return properties.getProperty('SECRET_TOKEN');
+}
+
+/**
+ * Validate the request has the correct secret token
+ */
+function validateRequest(data) {
+  const secretToken = getSecretToken();
+  
+  // If no token is configured, allow requests (for initial setup/testing)
+  // Remove this after setting up the token!
+  if (!secretToken) {
+    Logger.log('WARNING: SECRET_TOKEN not configured in Script Properties. Allowing request.');
+    return true;
+  }
+  
+  // Check if token is provided in the request
+  const providedToken = data.token || data.authToken;
+  
+  if (!providedToken) {
+    Logger.log('Request rejected: No token provided');
+    return false;
+  }
+  
+  if (providedToken !== secretToken) {
+    Logger.log('Request rejected: Invalid token');
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Create a JSON response with CORS headers
+ */
+function createResponse(data, statusCode = 200) {
+  const output = ContentService.createTextOutput(JSON.stringify(data));
+  output.setMimeType(ContentService.MimeType.JSON);
+  return output;
+}
+
+/**
+ * Handle OPTIONS requests (CORS preflight)
+ */
+function doOptions(e) {
+  return createResponse({ success: true });
+}
 
 /**
  * Handle POST requests to write data to sheets
- * Note: Google Apps Script Web Apps handle CORS automatically when deployed with "Anyone" access
+ * Now requires secret token authentication
  */
 function doPost(e) {
   try {
+    // Parse request data
     const data = JSON.parse(e.postData.contents);
+    
+    // Validate authentication token
+    if (!validateRequest(data)) {
+      return createResponse({
+        success: false,
+        error: 'Unauthorized: Invalid or missing authentication token'
+      }, 401);
+    }
+    
+    // Extract request parameters
     const { action, entityType, records } = data;
 
+    // Validate request format
     if (action !== 'upsert' || !entityType || !records || !Array.isArray(records)) {
-      return ContentService.createTextOutput(JSON.stringify({
+      return createResponse({
         success: false,
         error: 'Invalid request format'
-      })).setMimeType(ContentService.MimeType.JSON);
+      }, 400);
     }
 
+    // Process the request
     const result = writeToSheet(entityType, records);
 
-    return ContentService.createTextOutput(JSON.stringify({
+    return createResponse({
       success: true,
       result: result
-    })).setMimeType(ContentService.MimeType.JSON);
+    });
 
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
+    Logger.log('Error in doPost: ' + error.toString());
+    return createResponse({
       success: false,
       error: error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+    }, 500);
   }
 }
 
 /**
  * Handle GET requests (for testing)
+ * Returns status without requiring authentication (safe for health checks)
  */
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
+  const secretToken = getSecretToken();
+  const isConfigured = !!secretToken;
+  
+  return createResponse({
     success: true,
     message: 'LECRM Google Sheets Sync Web App is running',
-    timestamp: new Date().toISOString()
-  })).setMimeType(ContentService.MimeType.JSON);
+    timestamp: new Date().toISOString(),
+    security: {
+      authenticationConfigured: isConfigured,
+      note: isConfigured 
+        ? 'Authentication is enabled. POST requests require a valid token.' 
+        : 'WARNING: Authentication not configured. Set SECRET_TOKEN in Script Properties!'
+    }
+  });
 }
 
 /**

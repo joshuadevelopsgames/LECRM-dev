@@ -563,8 +563,8 @@ export const base44 = {
       },
       upsert: async (data, lookupField = 'lmn_estimate_id') => {
         // In staging, we don't persist to mock data - return the data as if created/updated
-        const newEstimate = { ...data, id: data.id || Date.now().toString() };
-        return { ...newEstimate, _action: 'created' };
+          const newEstimate = { ...data, id: data.id || Date.now().toString() };
+          return { ...newEstimate, _action: 'created' };
       },
     },
     Jobsite: {
@@ -606,8 +606,8 @@ export const base44 = {
       },
       upsert: async (data, lookupField = 'lmn_jobsite_id') => {
         // In staging, we don't persist to mock data - return the data as if created/updated
-        const newJobsite = { ...data, id: data.id || Date.now().toString() };
-        return { ...newJobsite, _action: 'created' };
+          const newJobsite = { ...data, id: data.id || Date.now().toString() };
+          return { ...newJobsite, _action: 'created' };
       },
     },
   },

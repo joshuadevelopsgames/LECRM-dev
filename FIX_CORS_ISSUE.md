@@ -49,3 +49,5 @@ The `doOptions()` function handles the preflight request, and the CORS headers i
 
 If CORS continues to be an issue, you could use JSONP, but it's less secure and doesn't support POST requests properly. The CORS solution above is the correct approach.
 
+
+

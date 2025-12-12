@@ -132,7 +132,8 @@ export default function BuildScorecard() {
       alert('Please enter a question');
       return;
     }
-    setQuestions([...questions, {
+    const currentQuestions = Array.isArray(questions) ? questions : [];
+    setQuestions([...currentQuestions, {
       ...newQuestion,
       id: `q-${Date.now()}`
     }]);

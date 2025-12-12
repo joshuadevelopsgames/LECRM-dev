@@ -498,7 +498,7 @@ export default function Scoring() {
                   {icpTemplate.questions?.length || 0} questions
                 </Badge>
                 <span>•</span>
-                <span>Max score: {icpTemplate.total_possible_score || 0}</span>
+                <span>Max score: 100 (normalized)</span>
                 <span>•</span>
                 <span>Pass threshold: {icpTemplate.pass_threshold || 70}</span>
               </div>
@@ -555,7 +555,7 @@ export default function Scoring() {
                             <p className="text-sm text-slate-600 mt-1">{version.description}</p>
                           )}
                           <p className="text-xs text-slate-500 mt-1">
-                            {version.questions?.length || 0} questions • Max score: {version.total_possible_score || 0}
+                            {version.questions?.length || 0} questions • Max score: 100 (normalized)
                           </p>
                         </div>
                       </div>

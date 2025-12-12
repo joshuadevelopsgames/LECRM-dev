@@ -85,9 +85,12 @@ export default function BuildScorecard() {
     category: 'Other'
   });
 
-  // Get unique sections from questions
+  // Get unique sections from questions (ensure questions is always an array)
   const sections = useMemo(() => {
-    const sectionSet = new Set(questions.map(q => q.section || 'Other'));
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return [];
+    }
+    const sectionSet = new Set(questions.map(q => (q && q.section) ? q.section : 'Other'));
     return Array.from(sectionSet);
   }, [questions]);
 
@@ -110,22 +113,29 @@ export default function BuildScorecard() {
   };
 
   const removeQuestion = (questionId) => {
-    setQuestions(questions.filter(q => q.id !== questionId));
+    if (!Array.isArray(questions)) return;
+    setQuestions(questions.filter(q => q && q.id !== questionId));
   };
 
   const updateQuestion = (questionId, field, value) => {
+    if (!Array.isArray(questions)) return;
     setQuestions(questions.map(q => 
-      q.id === questionId ? { ...q, [field]: value } : q
+      q && q.id === questionId ? { ...q, [field]: value } : q
     ));
   };
 
   const saveAndContinueMutation = useMutation({
     mutationFn: async () => {
       // Calculate total possible score
+      if (!Array.isArray(questions) || questions.length === 0) {
+        alert('Please add at least one question to the scorecard');
+        return;
+      }
       const totalPossibleScore = questions.reduce((sum, q) => {
+        if (!q) return sum;
         const maxAnswer = q.answer_type === 'yes_no' ? 1 : 
                          q.answer_type === 'scale_1_5' ? 5 : 10;
-        return sum + (q.weight * maxAnswer);
+        return sum + ((q.weight || 0) * maxAnswer);
       }, 0);
 
       // Create a temporary template for this custom scorecard
@@ -182,11 +192,15 @@ export default function BuildScorecard() {
     );
   }
 
-  // Group questions by section
+  // Group questions by section (ensure questions is always an array)
   const questionsBySection = useMemo(() => {
     const grouped = {};
+    if (!Array.isArray(questions)) {
+      return grouped;
+    }
     questions.forEach((question) => {
-      const section = question.section || 'Other';
+      if (!question) return;
+      const section = (question.section) ? question.section : 'Other';
       if (!grouped[section]) {
         grouped[section] = [];
       }

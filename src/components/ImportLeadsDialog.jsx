@@ -1279,6 +1279,8 @@ export default function ImportLeadsDialog({ open, onClose }) {
                             const currentJobsite = mergedData.jobsites.find(j => j.lmn_jobsite_id === jobsite.lmn_jobsite_id);
                             const selectedAccountId = manualLink || (currentJobsite && !currentJobsite._is_orphaned ? currentJobsite.account_id : null);
                             const isLinked = !!selectedAccountId;
+                            // Use special value for unlinked state, or the actual account ID
+                            const selectValue = selectedAccountId || '__unlink__';
                             
                             return (
                               <Card key={jobsite.lmn_jobsite_id} className={`p-3 border ${isLinked ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-white'}`}>
@@ -1328,14 +1330,14 @@ export default function ImportLeadsDialog({ open, onClose }) {
                                       Link to Account:
                                     </Label>
                                     <Select
-                                      value={selectedAccountId || ''}
-                                      onValueChange={(value) => handleLinkOrphanedJobsite(jobsite.lmn_jobsite_id, value)}
+                                      value={selectValue}
+                                      onValueChange={(value) => handleLinkOrphanedJobsite(jobsite.lmn_jobsite_id, value === '__unlink__' ? null : value)}
                                     >
                                       <SelectTrigger className="w-full h-9">
                                         <SelectValue placeholder="Select an account..." />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="">None (Leave unlinked)</SelectItem>
+                                        <SelectItem value="__unlink__">None (Leave unlinked)</SelectItem>
                                         {accounts
                                           .filter(acc => !acc.archived && acc.status !== 'archived')
                                           .map(account => (

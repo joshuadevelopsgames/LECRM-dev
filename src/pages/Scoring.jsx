@@ -31,12 +31,15 @@ import {
 } from "@/components/ui/select";
 import TutorialTooltip from '../components/TutorialTooltip';
 import { parseScorecardTemplateFromSheet } from '@/services/googleSheetsService';
-import { Download } from 'lucide-react';
+import { autoScoreAllAccounts } from '@/utils/autoScoreAllAccounts';
+import { Download, RefreshCw } from 'lucide-react';
 
 export default function Scoring() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAutoScoring, setIsAutoScoring] = useState(false);
+  const [autoScoreProgress, setAutoScoreProgress] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -44,6 +47,10 @@ export default function Scoring() {
     queryKey: ['scorecard-templates'],
     queryFn: () => base44.entities.ScorecardTemplate.list()
   });
+
+  // Find primary template
+  const primaryTemplate = templates.find(t => t.is_default === true || t.is_primary === true) || 
+                          templates.find(t => t.name === 'ICP Weighted Scorecard' && t.is_active);
 
   const [newTemplate, setNewTemplate] = useState({
     name: '',
@@ -69,10 +76,15 @@ export default function Scoring() {
         total_possible_score: totalScore
       });
     },
-    onSuccess: () => {
+    onSuccess: async (newTemplate) => {
       queryClient.invalidateQueries({ queryKey: ['scorecard-templates'] });
       setIsDialogOpen(false);
       resetForm();
+      
+      // If this is marked as primary/default, auto-score all accounts
+      if (newTemplate.is_default || newTemplate.is_primary) {
+        await triggerAutoScore(newTemplate);
+      }
     }
   });
 
@@ -89,10 +101,15 @@ export default function Scoring() {
         total_possible_score: totalScore
       });
     },
-    onSuccess: () => {
+    onSuccess: async (updatedTemplate) => {
       queryClient.invalidateQueries({ queryKey: ['scorecard-templates'] });
       setIsDialogOpen(false);
       resetForm();
+      
+      // If this is the primary template, auto-score all accounts
+      if (updatedTemplate.is_default || updatedTemplate.is_primary) {
+        await triggerAutoScore(updatedTemplate);
+      }
     }
   });
 
@@ -177,6 +194,16 @@ export default function Scoring() {
             <p className="text-slate-600 mt-1">Create weighted questionnaires to score accounts</p>
           </div>
           <div className="flex gap-2">
+            {primaryTemplate && (
+              <Button 
+                variant="outline" 
+                onClick={() => triggerAutoScore(primaryTemplate)}
+                disabled={isAutoScoring}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isAutoScoring ? 'animate-spin' : ''}`} />
+                {isAutoScoring ? 'Auto-Scoring...' : 'Re-score All Accounts'}
+              </Button>
+            )}
             <Button 
               variant="outline" 
               onClick={() => importTemplateMutation.mutate()}
@@ -414,6 +441,18 @@ export default function Scoring() {
           </Card>
         ))}
       </div>
+
+      {/* Auto-scoring progress */}
+      {autoScoreProgress && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className={`w-4 h-4 text-blue-600 ${isAutoScoring ? 'animate-spin' : ''}`} />
+              <p className="text-sm text-blue-900">{autoScoreProgress}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {templates.length === 0 && (
         <Card className="p-12 text-center">

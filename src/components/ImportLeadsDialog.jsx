@@ -6,6 +6,7 @@ import { parseLeadsList } from '@/utils/lmnLeadsListParser';
 import { parseEstimatesList } from '@/utils/lmnEstimatesListParser';
 import { parseJobsiteExport } from '@/utils/lmnJobsiteExportParser';
 import { mergeContactData } from '@/utils/lmnMergeData';
+import { autoScoreAccount } from '@/utils/autoScoreAccount';
 // Data is now stored server-side via API endpoints, no Google Sheets needed
 import * as XLSX from 'xlsx';
 import {

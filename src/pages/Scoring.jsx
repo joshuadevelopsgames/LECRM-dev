@@ -251,6 +251,19 @@ export default function Scoring() {
     setNewTemplate({ ...newTemplate, questions: updatedQuestions });
   };
 
+  // Auto-import primary template on first load if it doesn't exist
+  useEffect(() => {
+    if (!templatesLoading && templates.length === 0 && !isImporting && importTemplateMutation) {
+      // No templates exist, try to import from Google Sheet
+      console.log('📥 No templates found, attempting to import primary template from Google Sheet...');
+      importTemplateMutation.mutate();
+    } else if (!templatesLoading && templates.length > 0 && !primaryTemplate && !isImporting && importTemplateMutation) {
+      // Templates exist but no primary template, try to import
+      console.log('📥 No primary template found, attempting to import from Google Sheet...');
+      importTemplateMutation.mutate();
+    }
+  }, [templatesLoading, templates.length, primaryTemplate, isImporting, importTemplateMutation]);
+
   return (
     <div className="space-y-6">
       {/* Header */}

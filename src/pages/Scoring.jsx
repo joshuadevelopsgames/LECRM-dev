@@ -374,6 +374,7 @@ export default function Scoring() {
             </div>
           </DialogContent>
         </Dialog>
+          </div>
         </div>
       </TutorialTooltip>
 

@@ -92,9 +92,36 @@ export default function Accounts() {
   });
 
   // Then apply other filters and sort
+  // Map tags to account types for filtering:
+  // - "client" tag matches "customer" filter
+  // - "lead" tag matches "prospect" filter
+  // - Other common mappings
+  const getAccountTypeForFiltering = (account) => {
+    const accountType = account.account_type?.toLowerCase();
+    const tags = (account.tags || []).map(t => t.toLowerCase());
+    
+    // Check tags first, then account_type
+    if (tags.includes('client')) return 'customer';
+    if (tags.includes('customer')) return 'customer';
+    if (tags.includes('lead')) return 'prospect';
+    if (tags.includes('prospect')) return 'prospect';
+    if (tags.includes('partner')) return 'partner';
+    if (tags.includes('vendor')) return 'vendor';
+    if (tags.includes('competitor')) return 'competitor';
+    
+    // Fall back to account_type
+    return accountType;
+  };
+
   let filteredAccounts = accountsByStatus.filter(account => {
     const matchesSearch = account.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || account.account_type === filterType;
+    
+    // Check both account_type and tags for type matching
+    const accountTypeForFilter = getAccountTypeForFiltering(account);
+    const matchesType = filterType === 'all' || 
+                       account.account_type === filterType || 
+                       accountTypeForFilter === filterType;
+    
     const matchesSegment = filterSegment === 'all' || account.revenue_segment === filterSegment;
     return matchesSearch && matchesType && matchesSegment;
   });

@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Clock, BellOff } from 'lucide-react';
+import { ArrowLeft, Clock, BellOff, List, LayoutGrid, Building2, AlertCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import SnoozeDialog from '@/components/SnoozeDialog';
@@ -14,6 +14,7 @@ export default function NeglectedAccounts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [snoozeAccount, setSnoozeAccount] = useState(null);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
@@ -91,76 +92,205 @@ export default function NeglectedAccounts() {
             <p className="text-slate-600 mt-1">Accounts with no contact in 30+ days</p>
           </div>
         </div>
-        <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 text-lg px-4 py-2">
-          {neglectedAccounts.length} accounts
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 text-lg px-4 py-2">
+            {neglectedAccounts.length} accounts
+          </Badge>
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className={`h-8 px-3 ${viewMode === 'list' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className={`h-8 px-3 ${viewMode === 'card' ? 'bg-slate-900 text-white hover:bg-slate-800' : ''}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Accounts List */}
+      {/* Accounts List/Card View */}
       {neglectedAccounts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {neglectedAccounts.map(account => {
-            const daysSince = account.last_interaction_date
-              ? differenceInDays(new Date(), new Date(account.last_interaction_date))
-              : null;
-            
-            return (
-              <Card
-                key={account.id}
-                className="border-amber-200 bg-amber-50/50 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(createPageUrl(`AccountDetail?id=${account.id}`))}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg text-slate-900">{account.name}</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSnoozeAccount(account);
-                      }}
-                      className="text-amber-700 hover:text-amber-900 hover:bg-amber-100"
-                    >
-                      <BellOff className="w-4 h-4 mr-1" />
-                      Snooze
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {account.last_interaction_date ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="w-4 h-4 text-amber-600" />
-                        <span className="text-slate-600">
-                          Last contact: {format(new Date(account.last_interaction_date), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="w-4 h-4 text-amber-600" />
-                        <span className="text-slate-600">No interactions logged</span>
-                      </div>
-                    )}
-                    {daysSince !== null && (
-                      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
-                        {daysSince} days ago
-                      </Badge>
-                    )}
-                    {account.annual_revenue && (
-                      <div className="pt-2 border-t border-amber-200">
-                        <p className="text-xs text-slate-500">Annual Revenue</p>
-                        <p className="text-sm font-semibold text-slate-900">
-                          ${account.annual_revenue.toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        viewMode === 'list' ? (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-amber-50 border-b border-amber-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Account
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Last Contact
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Days Since
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Annual Revenue
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Organization Score
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {neglectedAccounts.map(account => {
+                    const daysSince = account.last_interaction_date
+                      ? differenceInDays(new Date(), new Date(account.last_interaction_date))
+                      : null;
+                    
+                    return (
+                      <tr 
+                        key={account.id}
+                        onClick={() => navigate(createPageUrl(`AccountDetail?id=${account.id}`))}
+                        className="hover:bg-amber-50/50 transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <Building2 className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-slate-900">{account.name}</div>
+                              {account.account_type && (
+                                <div className="text-sm text-slate-500">{account.account_type}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-amber-600" />
+                            <span className="text-sm text-slate-600">
+                              {account.last_interaction_date
+                                ? format(new Date(account.last_interaction_date), 'MMM d, yyyy')
+                                : 'Never'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          {daysSince !== null ? (
+                            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
+                              {daysSince} days
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                              No contact
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-slate-900 font-medium">
+                          {account.annual_revenue ? `$${account.annual_revenue.toLocaleString()}` : '-'}
+                        </td>
+                        <td className="px-4 py-4">
+                          {account.organization_score !== null && account.organization_score !== undefined ? (
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-900">{account.organization_score}</span>
+                              <span className="text-xs text-slate-500">/100</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSnoozeAccount(account);
+                            }}
+                            className="text-amber-700 hover:text-amber-900 hover:bg-amber-100"
+                          >
+                            <BellOff className="w-4 h-4 mr-1" />
+                            Snooze
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {neglectedAccounts.map(account => {
+              const daysSince = account.last_interaction_date
+                ? differenceInDays(new Date(), new Date(account.last_interaction_date))
+                : null;
+              
+              return (
+                <Card
+                  key={account.id}
+                  className="border-amber-200 bg-amber-50/50 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => navigate(createPageUrl(`AccountDetail?id=${account.id}`))}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-lg text-slate-900">{account.name}</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSnoozeAccount(account);
+                        }}
+                        className="text-amber-700 hover:text-amber-900 hover:bg-amber-100"
+                      >
+                        <BellOff className="w-4 h-4 mr-1" />
+                        Snooze
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {account.last_interaction_date ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span className="text-slate-600">
+                            Last contact: {format(new Date(account.last_interaction_date), 'MMM d, yyyy')}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span className="text-slate-600">No interactions logged</span>
+                        </div>
+                      )}
+                      {daysSince !== null && (
+                        <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
+                          {daysSince} days ago
+                        </Badge>
+                      )}
+                      {account.annual_revenue && (
+                        <div className="pt-2 border-t border-amber-200">
+                          <p className="text-xs text-slate-500">Annual Revenue</p>
+                          <p className="text-sm font-semibold text-slate-900">
+                            ${account.annual_revenue.toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )
       ) : (
         <Card className="p-12 text-center">
           <Clock className="w-12 h-12 text-slate-400 mx-auto mb-3" />
